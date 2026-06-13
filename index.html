@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>로또명당 — 내 주변 1등 당첨 지점</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
+<script src="./coords.js"></script>
+<style>
+  :root {
+    --primary:   #2C8C5E;   /* 동행복권 메인 초록 */
+    --primary2:  #1E6B46;   /* 진한 초록 */
+    --primary-lt:#E8F5EE;   /* 연한 초록 배경 */
+    --primary-md:#A8D5B8;   /* 중간 초록 */
+    --accent:    #38A169;   /* 버튼 강조 */
+    --red:       #E53E3E;   /* 경고/추천 */
+    --bg:        #F7F8FA;   /* 전체 배경 */
+    --card-bg:   rgba(255,255,255,0.97);
+    --card-border:rgba(44,140,94,0.18);
+    --text:      #1A2B22;   /* 메인 텍스트 */
+    --text2:     #2D3748;   /* 보조 텍스트 */
+    --muted:     #718096;   /* 흐린 텍스트 */
+    --surface:   #F0F4F1;   /* 카드 내부 배경 */
+    --divider:   rgba(0,0,0,0.07);
+    --shadow:    rgba(44,140,94,0.12);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html, body {
+    width:100%; height:100%;
+    overflow:hidden;
+    font-family:'Noto Sans KR', sans-serif;
+    background:var(--bg);
+  }
+
+  /* ── MAP ── */
+  #map {
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    z-index:0;
+  }
+
+  /* ── HEADER ── */
+  .app-header {
+    position:fixed; top:0; left:0; right:0;
+    z-index:100;
+    padding:14px 16px 0;
+    pointer-events:none;
+    display:flex; align-items:center; gap:10px;
+  }
+  .logo-pill {
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:50px;
+    padding:8px 16px;
+    display:flex; align-items:center; gap:8px;
+    pointer-events:all;
+    backdrop-filter:blur(20px);
+    box-shadow:0 4px 20px var(--shadow);
+  }
+  .logo-emoji { font-size:18px; animation:bounce 3s ease-in-out infinite; }
+  @keyframes bounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }
+  .logo-text {
+    font-family:'Black Han Sans',sans-serif; font-size:16px;
+    color:var(--primary);
+  }
+  .live-badge {
+    background:var(--red); color:#fff;
+    font-size:9px; font-weight:700;
+    padding:3px 7px; border-radius:20px;
+    animation:blink 2s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  /* ── FAB GROUP ── */
+  .fab-group {
+    position:fixed; top:72px; right:14px;
+    z-index:100;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .fab-btn {
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:50px;
+    color:var(--muted);
+    font-family:'Noto Sans KR',sans-serif;
+    font-size:12px; font-weight:600;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    backdrop-filter:blur(20px);
+    box-shadow:0 4px 16px var(--shadow);
+    transition:all .18s;
+    white-space:nowrap;
+  }
+  .fab-btn.circle {
+    width:42px; height:42px; border-radius:50%;
+    font-size:17px; padding:0;
+  }
+  .fab-btn.pill { padding:9px 14px; }
+  .fab-btn:hover { border-color:var(--primary); color:var(--primary); }
+  .fab-btn.on-gold {
+    background:var(--primary-lt); border-color:var(--primary); color:var(--primary);
+    box-shadow:0 4px 16px var(--shadow);
+  }
+  .fab-btn.on-green {
+    background:var(--primary-lt); border-color:var(--primary); color:var(--primary);
+    box-shadow:0 4px 16px var(--shadow);
+  }
+
+  /* ── SEARCH OVERLAY ── */
+  .search-overlay {
+    position:fixed; inset:0;
+    background:rgba(26,43,34,0.45);
+    backdrop-filter:blur(6px);
+    z-index:200;
+    display:none;
+    align-items:flex-start; justify-content:center;
+    padding-top:76px;
+  }
+  .search-overlay.open { display:flex; }
+  .search-box {
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
+    border-radius:20px; padding:20px;
+    width:calc(100% - 32px); max-width:460px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.15);
+    animation:popIn .18s ease;
+  }
+  @keyframes popIn {
+    from{opacity:0;transform:translateY(-14px) scale(.97)}
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
+  .search-label { font-size:11px; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:12px; }
+  .search-row { position:relative; }
+  .search-input {
+    width:100%; background:var(--surface);
+    border:1.5px solid var(--primary-md); border-radius:12px;
+    padding:12px 48px 12px 16px;
+    color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:15px;
+    outline:none; transition:border .18s;
+  }
+  .search-input:focus { border-color:var(--primary); }
+  .search-input::placeholder { color:var(--muted); }
+  .search-go {
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:linear-gradient(135deg,var(--primary),var(--primary2));
+    border:none; border-radius:8px;
+    width:32px; height:32px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:15px; color:#fff; font-weight:700;
+  }
+  .search-close-btn {
+    margin-top:10px; width:100%;
+    background:none; border:1px solid var(--divider); border-radius:10px;
+    padding:10px; color:var(--muted);
+    font-family:'Noto Sans KR',sans-serif; font-size:13px; cursor:pointer; transition:all .15s;
+  }
+  .search-close-btn:hover { background:var(--surface); color:var(--text); }
+  .search-clear-btn {
+    width:100%; background:rgba(229,62,62,0.07);
+    border:1px solid rgba(229,62,62,0.25); border-radius:10px;
+    padding:9px; color:var(--red);
+    font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:600;
+    cursor:pointer; transition:all .15s;
+  }
+  .search-clear-btn:hover { background:rgba(229,62,62,0.13); }
+
+  /* ── STORE POPUP ── */
+  .store-popup {
+    position:fixed; left:12px; right:12px;
+    z-index:110;
+    background:var(--card-bg);
+    border:1.5px solid var(--primary);
+    border-radius:18px; padding:16px;
+    box-shadow:0 8px 40px var(--shadow);
+    display:none;
+    backdrop-filter:blur(20px);
+    animation:popUp .18s ease;
+    max-width:500px; margin:0 auto;
+  }
+  @keyframes popUp {
+    from{opacity:0;transform:translateY(10px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  .store-popup.visible { display:block; }
+  .popup-close {
+    position:absolute; top:10px; right:12px;
+    background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer;
+  }
+  .popup-hd { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .popup-icon {
+    width:42px; height:42px; flex-shrink:0;
+    background:linear-gradient(135deg,var(--primary),var(--primary2));
+    border-radius:11px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; box-shadow:0 4px 14px var(--shadow);
+  }
+  .popup-name { font-size:15px; font-weight:700; color:var(--text); }
+  .popup-addr { font-size:11px; color:var(--muted); margin-top:2px; }
+  .popup-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+  .ps { background:var(--surface); border-radius:9px; padding:8px; text-align:center; }
+  .ps-v { font-family:'Black Han Sans',sans-serif; font-size:18px; color:var(--primary); }
+  .ps-v.green { color:var(--accent); font-size:14px; }
+  .ps-v.sm { font-size:13px; color:var(--text2); }
+  .ps-l { font-size:9px; color:var(--muted); margin-top:2px; }
+  .wh-title { font-size:10px; color:var(--muted); margin-bottom:5px; }
+  .wh-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .wh-chip {
+    background:var(--primary-lt); border:1px solid var(--primary-md);
+    border-radius:5px; padding:2px 7px; font-size:10px; color:var(--primary);
+  }
+
+  /* ── BOTTOM SHEET ── */
+  .bottom-sheet {
+    position:fixed; left:0; right:0; bottom:0;
+    z-index:100;
+    display:flex; flex-direction:column;
+    transition:transform .32s cubic-bezier(0.32,0.72,0,1);
+    max-height:72vh;
+  }
+  .sheet-handle-area {
+    display:flex; justify-content:center;
+    padding:10px 0 0; cursor:grab; user-select:none;
+  }
+  .sheet-handle {
+    width:38px; height:4px;
+    background:var(--primary-md); border-radius:2px;
+  }
+  .sheet-inner {
+    background:var(--card-bg);
+    border-top:2px solid var(--primary);
+    border-radius:20px 20px 0 0;
+    box-shadow:0 -4px 24px var(--shadow);
+    display:flex; flex-direction:column;
+    overflow:hidden;
+    flex:1;
+  }
+  .sheet-header {
+    padding:14px 18px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--divider); flex-shrink:0;
+  }
+  .sheet-title { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+  .sheet-count { font-size:11px; color:var(--muted); font-weight:400; }
+  .sort-sel {
+    background:var(--surface); border:1px solid var(--divider);
+    border-radius:8px; color:var(--text2);
+    font-family:'Noto Sans KR',sans-serif; font-size:11px; padding:5px 8px;
+    cursor:pointer; outline:none;
+  }
+
+  /* Store List */
+  .store-list { overflow-y:auto; overscroll-behavior:contain; flex:1; }
+  .store-list::-webkit-scrollbar { display:none; }
+
+  .store-card {
+    padding:13px 18px;
+    border-bottom:1px solid var(--divider);
+    cursor:pointer; transition:background .15s;
+    display:flex; align-items:flex-start; gap:12px;
+    position:relative;
+    background:#fff;
+  }
+  .store-card::before {
+    content:''; position:absolute; left:0; top:0; bottom:0;
+    width:3px; background:transparent; transition:background .18s; border-radius:0 2px 2px 0;
+  }
+  .store-card:hover { background:var(--primary-lt); }
+  .store-card.active { background:var(--primary-lt); }
+  .store-card.active::before { background:var(--primary); }
+  .store-card.hidden { display:none; }
+  .store-card.reveal { animation:slideDown .2s ease forwards; }
+  @keyframes slideDown {
+    from{opacity:0;transform:translateY(-7px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  .s-rank { font-size:11px; color:var(--muted); font-weight:600; min-width:20px; padding-top:2px; }
+  .s-rank.top { color:var(--primary); }
+  .s-info { flex:1; min-width:0; }
+  .s-name {
+    font-size:14px; font-weight:700; color:var(--text); margin-bottom:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .s-addr { font-size:11px; color:var(--muted); margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .s-badges { display:flex; gap:4px; flex-wrap:wrap; }
+  .badge { font-size:10px; padding:2px 7px; border-radius:4px; font-weight:600; }
+  .b-rec {
+    background:linear-gradient(135deg,var(--red),#c53030); color:#fff;
+    animation:rec-glow 2s ease-in-out infinite;
+  }
+  @keyframes rec-glow { 0%,100%{box-shadow:0 0 5px rgba(229,62,62,0.3)} 50%{box-shadow:0 0 10px rgba(229,62,62,0.55)} }
+  .b-win { background:var(--primary-lt); color:var(--primary); border:1px solid var(--primary-md); }
+  .s-meta { margin-top:6px; display:flex; gap:10px; font-size:10px; color:var(--muted); flex-wrap:wrap; }
+  .s-right { text-align:right; flex-shrink:0; }
+  .s-wins {
+    font-family:'Black Han Sans',sans-serif; font-size:24px;
+    color:var(--primary); line-height:1;
+  }
+  .s-lbl { font-size:9px; color:var(--muted); margin-top:2px; }
+
+  /* Load more */
+  .lm-wrap { padding:10px 18px 16px; flex-shrink:0; border-top:1px solid var(--divider); }
+  .lm-btn {
+    width:100%;
+    background:var(--primary-lt); border:1.5px solid var(--primary);
+    border-radius:10px; padding:10px;
+    color:var(--primary); font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:700;
+    cursor:pointer; transition:all .18s;
+    display:flex; align-items:center; justify-content:center; gap:5px;
+  }
+  .lm-btn:hover { background:var(--primary); color:#fff; }
+
+  /* Cluster marker */
+  .nv-cluster {
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    background:linear-gradient(135deg,var(--primary),var(--primary2));
+    border:3px solid #fff;
+    border-radius:50%;
+    box-shadow:0 3px 12px rgba(44,140,94,0.45);
+    cursor:pointer;
+    font-family:'Noto Sans KR',sans-serif;
+    color:#fff;
+  }
+  .nv-cluster-count {
+    font-family:'Black Han Sans',sans-serif;
+    font-size:16px; color:#fff; line-height:1;
+  }
+  .nv-cluster-label {
+    font-size:9px; color:rgba(255,255,255,0.85); margin-top:1px;
+  }
+  .nv-bubble {
+    background:#fff; border:2px solid var(--primary);
+    border-radius:10px; padding:4px 8px;
+    display:flex; align-items:center; gap:4px;
+    white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.15);
+    font-family:'Noto Sans KR',sans-serif;
+  }
+  .nv-bubble.mid { border-color:var(--accent); }
+  .nv-bubble.low { border-color:var(--primary-md); }
+  .nv-bubble.rec { border-color:var(--red); }
+  .nv-wins { font-family:'Black Han Sans',sans-serif; font-size:13px; color:var(--primary); }
+  .nv-bubble.mid .nv-wins { color:var(--accent); }
+  .nv-bubble.low .nv-wins { color:var(--primary-md); }
+  .nv-bubble.rec .nv-wins { color:var(--red); }
+  .nv-name { font-size:10px; color:var(--text2); max-width:68px; overflow:hidden; text-overflow:ellipsis; }
+  .nv-tail { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid var(--primary); margin:0 auto; }
+  .nv-tail.mid { border-top-color:var(--accent); }
+  .nv-tail.low { border-top-color:var(--primary-md); }
+  .nv-tail.rec { border-top-color:var(--red); }
+
+  /* My location dot */
+  .my-dot {
+    width:18px; height:18px;
+    background:var(--primary); border:3px solid #fff; border-radius:50%;
+    box-shadow:0 0 0 6px rgba(44,140,94,0.25);
+    animation:loc-p 2s ease-in-out infinite;
+  }
+  @keyframes loc-p {
+    0%,100%{box-shadow:0 0 0 6px rgba(44,140,94,0.25)}
+    50%{box-shadow:0 0 0 12px rgba(44,140,94,0.08)}
+  }
+</style>
+</head>
+<body>
+
+<!-- Full-screen map -->
+<div id="map"></div>
+
+<!-- Header -->
+<div class="app-header">
+  <div class="logo-pill">
+    <span class="logo-emoji">🍀</span>
+    <span class="logo-text">로또명당</span>
+    <span class="live-badge">LIVE 1171회</span>
+  </div>
+</div>
+
+<!-- FAB (top-right) -->
+<div class="fab-group">
+  <button class="fab-btn circle" id="fabSearch" onclick="openSearch()" title="검색">🔍</button>
+  <button class="fab-btn pill"   id="fabTop30" onclick="toggleFilter('top30')">🏆 전국 TOP30</button>
+  <button class="fab-btn pill"   id="fabNear"  onclick="toggleFilter('near')">📍 내 주변</button>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="searchOverlay" onclick="bgClose(event)">
+  <div class="search-box">
+    <div class="search-label">🔍 지점명 · 지역 검색</div>
+    <div class="search-row">
+      <input class="search-input" id="searchInput" type="text"
+        placeholder="예) 강남, 행운복권방…"
+        oninput="onSearchInput()"
+        onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="search-go" onclick="doSearch()">↵</button>
+    </div>
+    <div id="searchActiveWrap" style="display:none;margin-top:8px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+        현재 검색어: <span id="searchActiveTxt" style="color:var(--primary);font-weight:700"></span>
+      </div>
+      <button class="search-clear-btn" onclick="clearSearch()">✕ 검색 초기화</button>
+    </div>
+    <button class="search-close-btn" onclick="closeSearch()">닫기</button>
+  </div>
+</div>
+
+<!-- Store Detail Popup -->
+<div class="store-popup" id="storePopup">
+  <button class="popup-close" onclick="closePopup()">✕</button>
+  <div id="popupContent"></div>
+</div>
+
+<!-- Bottom Sheet -->
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-handle-area" id="sheetHandle">
+    <div class="sheet-handle"></div>
+  </div>
+  <div class="sheet-inner">
+    <div class="sheet-header">
+      <div class="sheet-title">
+        🏪 명당 지점
+        <span class="sheet-count" id="sheetCount"></span>
+      </div>
+      <select class="sort-sel" onchange="sortStores(this.value)" id="sortSel">
+        <option value="wins">당첨 횟수순</option>
+        <option value="prize">누적 상금순</option>
+        <option value="recent">최근 당첨순</option>
+        <option value="dist">거리순 (내 주변)</option>
+      </select>
+    </div>
+    <!-- 검색 상태 바 (검색 중일 때만 표시) -->
+    <div id="searchStatusBar" style="display:none;padding:8px 18px;border-bottom:1px solid var(--divider);align-items:center;justify-content:space-between;gap:8px;background:var(--primary-lt)">
+      <span style="font-size:12px;color:var(--text2)">
+        🔍 <span id="searchStatusTxt" style="color:var(--primary);font-weight:700"></span> 검색 결과
+      </span>
+      <button onclick="clearSearch()" style="background:var(--primary);border:none;border-radius:20px;padding:4px 12px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap">
+        ✕ 초기화
+      </button>
+    </div>
+    <div class="store-list" id="storeList"></div>
+    <div class="lm-wrap" id="lmWrap" style="display:none">
+      <button class="lm-btn" onclick="toggleMore()">
+        <span id="lmIcon">▾</span>
+        <span id="lmText">+ 더보기</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 런타임 store 목록 ──────────────────────────────────
+let stores = [];
+
+// ── 좌표 보정 테이블은 coords.js 에서 로드됩니다 ────────────
+
+
+// ── JSON 로드 & stores 변환 ──────────────────────────────────
+// lotto_stores.json 을 fetch()로 비동기 로드합니다.
+// 로컬 실행 시: python -m http.server 8080 → localhost:8080 으로 접속
+// 외부 배포 시: 웹서버에 파일 올리면 바로 동작 (inject_data.py 불필요)
+
+async function loadStoresFromJSON() {
+  setLoadingState(true, "데이터 로딩 중…");
+
+  try {
+    const res = await fetch("./lotto_stores.json?v=" + Date.now(), {
+      cache: "no-cache"
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const meta = data.meta || {};
+    const liveRound = meta.latestRound || 0;
+    const badge = document.querySelector(".live-badge");
+    if (badge && liveRound) badge.textContent = `LIVE ${liveRound}회`;
+
+    const rawStores = Object.values(data.stores || {});
+    if (rawStores.length === 0) throw new Error("판매점 데이터 비어있음");
+
+    stores = rawStores
+      .sort((a, b) => b.wins - a.wins)
+      .map((s, i) => {
+        const coord = addrToLatLng(s.addr);
+        const recentRound = s.lastRound || 0;
+        return {
+          id:        i + 1,
+          name:      s.name,
+          addr:      s.addr,
+          region:    guessRegion(s.addr),
+          wins:      s.wins,
+          prize:     s.prize || Math.round(s.wins * 29.5),
+          recent:    recentRound ? `${recentRound}회` : "-",
+          recentNum: recentRound,
+          type:      s.type || "자동",
+          rounds:    s.rounds || [],
+          lat:       coord.lat,
+          lng:       coord.lng,
+          rec:       s.wins >= 10,
+        };
+      });
+
+    setLoadingState(false);
+    return true;
+
+  } catch (err) {
+    console.warn("데이터 로드 실패:", err.message);
+
+    // file:// 프로토콜 감지
+    const isFileProtocol = location.protocol === "file:";
+
+    setLoadingState(false,
+      isFileProtocol
+        ? `⚠ 로컬 파일로 직접 열면 데이터를 불러올 수 없습니다.<br><br>
+           터미널에서 아래 명령어를 실행한 뒤<br>
+           <b>http://localhost:8080</b> 으로 접속하세요:<br><br>
+           <code style="background:rgba(44,140,94,0.1);padding:4px 10px;border-radius:6px;
+                        color:var(--primary);font-size:12px">python -m http.server 8080</code>`
+        : `⚠ lotto_stores.json 파일을 찾을 수 없습니다.<br>
+           crawl_all.py 를 먼저 실행하세요.`
+    );
+    return false;
+  }
+}
+
+// 주소에서 시/구 추출
+function guessRegion(addr) {
+  const m = addr.match(/([가-힣]+(?:시|도))\s+([가-힣]+(?:구|시|군))/);
+  if (m) return `${m[1].replace(/특별자치|광역|특별|자치/g,"")} ${m[2]}`;
+  const m2 = addr.match(/([가-힣]+(?:시|도|구))/);
+  return m2 ? m2[1] : addr.slice(0, 6);
+}
+
+// JSON 없을 때 최소 폴백 (앱이 완전 빈 화면이 되지 않도록)
+function useFallbackData() {
+  stores = [
+    {id:1, name:"데이터 없음 (crawl_all.py 실행 필요)", addr:"crawl_all.py 를 실행하여 lotto_stores.json 을 생성하세요",
+     region:"", wins:0, prize:0, recent:"-", recentNum:0, rounds:[], lat:37.5665, lng:126.9780, rec:false, type:"자동"},
+  ];
+}
+
+// ── 로딩 UI ───────────────────────────────────────────────────
+function setLoadingState(isLoading, msg = "") {
+  const count = document.getElementById("sheetCount");
+  const list  = document.getElementById("storeList");
+  if (isLoading) {
+    if (count) count.textContent = "로딩 중…";
+    if (list)  list.innerHTML = `
+      <div style="padding:36px;text-align:center;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:12px;animation:bounce 1s ease-in-out infinite">🍀</div>
+        <div style="font-size:13px">${msg || "당첨 데이터 불러오는 중…"}</div>
+      </div>`;
+  } else if (msg) {
+    if (count) count.textContent = "오류";
+    if (list)  list.innerHTML = `
+      <div style="padding:24px 18px;font-size:12px;color:var(--muted);line-height:1.8">
+        ${msg.replace(/\n/g,"<br>")}
+      </div>`;
+  }
+}
+
+// ── STATE ─────────────────────────────────────────────
+let map = null;
+let markers = [];
+let myMarker = null;
+let userPos = null;
+let activeFilter = null;
+let searchQuery = '';
+let currentSort = 'wins';
+let filtered = [];
+let renderedCount = 0;
+const INITIAL_COUNT = 1;
+const LOAD_MORE_COUNT = 10;
+let sheetH = 0;
+
+// ── MAP INIT ──────────────────────────────────────────
+function initMap(lat, lng, zoom) {
+  if (typeof naver === 'undefined' || !naver.maps) return;
+  map = new naver.maps.Map('map', {
+    center: new naver.maps.LatLng(lat, lng),
+    zoom: zoom || 13,
+    mapTypeId: naver.maps.MapTypeId.NORMAL,
+    mapDataControl: false,
+    scaleControl: false,
+    logoControlOptions: { position: naver.maps.Position.BOTTOM_RIGHT },
+    zoomControlOptions: {
+      position: naver.maps.Position.RIGHT_CENTER,
+      style: naver.maps.ZoomControlStyle.SMALL
+    }
+  });
+  bindMapEvents();
+}
+
+// ── MARKERS & CLUSTERING ──────────────────────────────
+function getCls(s) {
+  if (s.rec) return 'rec';
+  if (s.wins >= 10) return '';
+  if (s.wins >= 5)  return 'mid';
+  return 'low';
+}
+
+// 클러스터 반경 (줌 레벨별 픽셀 기준 실제 km 환산)
+function clusterRadiusKm(zoom) {
+  // 줌 낮을수록 큰 반경으로 묶음
+  const table = {6:80, 7:50, 8:30, 9:20, 10:12, 11:7, 12:4, 13:2, 14:1, 15:0.5};
+  return table[zoom] ?? (zoom >= 16 ? 0 : 100);
+}
+
+function buildClusters(list, zoom) {
+  const radius = clusterRadiusKm(zoom);
+  if (radius === 0) return list.map(s => ({ type:'single', store:s, lat:s.lat, lng:s.lng }));
+
+  const used = new Array(list.length).fill(false);
+  const clusters = [];
+
+  for (let i = 0; i < list.length; i++) {
+    if (used[i]) continue;
+    const group = [list[i]];
+    used[i] = true;
+    for (let j = i + 1; j < list.length; j++) {
+      if (used[j]) continue;
+      if (dist(list[i].lat, list[i].lng, list[j].lat, list[j].lng) <= radius) {
+        group.push(list[j]);
+        used[j] = true;
+      }
+    }
+    if (group.length === 1) {
+      clusters.push({ type:'single', store:group[0], lat:group[0].lat, lng:group[0].lng });
+    } else {
+      // 중심점: 당첨 횟수 가중 평균
+      const totalW = group.reduce((s, x) => s + x.wins, 0);
+      const lat = group.reduce((s, x) => s + x.lat * x.wins, 0) / totalW;
+      const lng = group.reduce((s, x) => s + x.lng * x.wins, 0) / totalW;
+      const topStore = group.reduce((a, b) => a.wins >= b.wins ? a : b);
+      clusters.push({
+        type: 'cluster',
+        stores: group,
+        topStore,
+        count: group.length,
+        totalWins: totalW,
+        lat, lng,
+      });
+    }
+  }
+  return clusters;
+}
+
+function renderMarkers() {
+  if (!map || typeof naver === 'undefined') return;
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+
+  const zoom = map.getZoom();
+  const clusters = buildClusters(filtered, zoom);
+
+  clusters.forEach(c => {
+    let html, anchor;
+
+    if (c.type === 'single') {
+      const s   = c.store;
+      const cls = getCls(s);
+      html = `
+        <div class="nv-marker">
+          <div class="nv-bubble ${cls}">
+            <span class="nv-wins">${s.wins}</span>
+            <span class="nv-name">${s.name}</span>
+          </div>
+          <div class="nv-tail ${cls}"></div>
+        </div>`;
+      anchor = new naver.maps.Point(52, 42);
+    } else {
+      // 클러스터 마커: 원형 + 지점 수 + 총 당첨 횟수
+      const size = Math.max(44, Math.min(72, 36 + c.count * 2));
+      html = `
+        <div class="nv-cluster" style="width:${size}px;height:${size}px;">
+          <span class="nv-cluster-count" style="font-size:${size>55?18:15}px">${c.count}</span>
+          <span class="nv-cluster-label">지점</span>
+        </div>`;
+      anchor = new naver.maps.Point(size / 2, size / 2);
+    }
+
+    const m = new naver.maps.Marker({
+      position: new naver.maps.LatLng(c.lat, c.lng),
+      map,
+      icon: { content: html, anchor },
+      zIndex: c.type === 'cluster' ? 10 : 5,
+    });
+
+    if (c.type === 'single') {
+      naver.maps.Event.addListener(m, 'click', () => selectStore(c.store.id));
+    } else {
+      // 클러스터 클릭: 해당 위치로 줌인
+      naver.maps.Event.addListener(m, 'click', () => {
+        const nextZoom = Math.min(map.getZoom() + 2, 16);
+        map.setCenter(new naver.maps.LatLng(c.lat, c.lng));
+        map.setZoom(nextZoom);
+      });
+    }
+    markers.push(m);
+  });
+}
+
+// 줌/이동 시 클러스터 재계산
+function bindMapEvents() {
+  if (!map) return;
+  naver.maps.Event.addListener(map, 'zoom_changed', () => renderMarkers());
+  naver.maps.Event.addListener(map, 'click', closePopup);
+}
+
+// ── USER LOCATION ──────────────────────────────────────
+function locateUser(cb) {
+  if (!navigator.geolocation) { cb(null); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      placeMyMarker();
+      cb(userPos);
+    },
+    () => {
+      // 고양시 fallback (사용자 위치 기반)
+      userPos = { lat: 37.6583, lng: 126.8320 };
+      placeMyMarker();
+      cb(userPos);
+    },
+    { timeout: 7000 }
+  );
+}
+
+function placeMyMarker() {
+  if (!userPos || !map || typeof naver === 'undefined') return;
+  if (myMarker) myMarker.setMap(null);
+  myMarker = new naver.maps.Marker({
+    position: new naver.maps.LatLng(userPos.lat, userPos.lng),
+    map,
+    icon: { content: '<div class="my-dot"></div>', anchor: new naver.maps.Point(9, 9) }
+  });
+}
+
+// ── FILTER & SORT ──────────────────────────────────────
+function dist(a, b, c, d) {
+  const R = 6371, dl = (c-a)*Math.PI/180, dL = (d-b)*Math.PI/180;
+  const x = Math.sin(dl/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dL/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function buildList() {
+  const INTERNET_KW = ["인터넷", "dhlottery", "복권닷컴", "온라인", "동행복권", "www.", "http", ".co.kr", ".com"];
+  const base = stores.filter(s =>
+    !INTERNET_KW.some(kw => s.name.includes(kw) || s.addr.includes(kw))
+  );
+
+  // ── 검색 모드: 기존 필터/정렬 무시, 검색어만 적용 ──
+  if (searchQuery) {
+    const q = searchQuery.replace(/\s/g, '');
+    return base.filter(s => {
+      const name   = (s.name   || '').replace(/\s/g, '');
+      const addr   = (s.addr   || '').replace(/\s/g, '');
+      const region = (s.region || '').replace(/\s/g, '');
+      return name.includes(q) || addr.includes(q) || region.includes(q);
+    });
+  }
+
+  // ── 일반 모드: 필터 + 정렬 ──
+  let list = [...base];
+  if (activeFilter === 'top30') {
+    // 당첨횟수순 상위 30개
+    list = [...base].sort((a,b) => b.wins - a.wins).slice(0, 30);
+    return list;
+  } else if (activeFilter === 'near' && userPos) {
+    list = list.filter(s => dist(s.lat, s.lng, userPos.lat, userPos.lng) <= 15);
+  }
+
+  // 정렬 — near 포함 모든 모드에서 currentSort 적용
+  if (currentSort === 'wins')   list.sort((a,b) => b.wins - a.wins);
+  else if (currentSort === 'prize')  list.sort((a,b) => b.prize - a.prize);
+  else if (currentSort === 'recent') list.sort((a,b) => parseInt(b.recent) - parseInt(a.recent));
+  else if (currentSort === 'dist' && userPos) {
+    list.sort((a,b) => dist(a.lat,a.lng,userPos.lat,userPos.lng) - dist(b.lat,b.lng,userPos.lat,userPos.lng));
+  } else if (activeFilter === 'near' && userPos) {
+    // 거리순이 기본값이므로 이 분기는 사실상 안 탐
+    list.sort((a,b) => dist(a.lat,a.lng,userPos.lat,userPos.lng) - dist(b.lat,b.lng,userPos.lat,userPos.lng));
+  }
+
+  return list;
+}
+
+function refresh() {
+  filtered = buildList();
+  renderedCount = 0;
+
+  const bar = document.getElementById('searchStatusBar');
+  const txt = document.getElementById('searchStatusTxt');
+  if (bar) {
+    if (searchQuery) {
+      bar.style.display = 'flex';
+      if (txt) txt.textContent = `"${searchQuery}"`;
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  const fabSearch = document.getElementById('fabSearch');
+  if (fabSearch) fabSearch.classList.toggle('on-gold', !!searchQuery);
+
+  if (map) renderMarkers();
+  renderList();
+}
+
+// ── FAB FILTER TOGGLE ─────────────────────────────────
+function resetFabs() {
+  document.getElementById('fabTop30').classList.remove('on-gold');
+  document.getElementById('fabNear').classList.remove('on-green');
+  document.getElementById('fabSearch').classList.remove('on-gold');
+}
+
+function toggleFilter(type) {
+  if (activeFilter === type) {
+    activeFilter = null;
+    resetFabs();
+    if (type === 'near') {
+      currentSort = 'wins';
+      const sel = document.getElementById('sortSel');
+      if (sel) sel.value = 'wins';
+    }
+    refresh();
+    return;
+  }
+  activeFilter = type;
+  resetFabs();
+  if (type === 'top30') {
+    document.getElementById('fabTop30').classList.add('on-gold');
+    currentSort = 'wins';
+    const sel = document.getElementById('sortSel');
+    if (sel) sel.value = 'wins';
+    refresh();
+  } else if (type === 'near') {
+    document.getElementById('fabNear').classList.add('on-green');
+    currentSort = 'dist';
+    const sel = document.getElementById('sortSel');
+    if (sel) sel.value = 'dist';
+    locateUser(pos => {
+      if (pos && map && typeof naver !== 'undefined') {
+        map.setCenter(new naver.maps.LatLng(pos.lat, pos.lng));
+        map.setZoom(13);
+      }
+      refresh();
+    });
+  }
+}
+
+// ── SEARCH ────────────────────────────────────────────
+function openSearch() {
+  document.getElementById('searchOverlay').classList.add('open');
+  // 현재 검색어가 있으면 input에 복원
+  document.getElementById('searchInput').value = searchQuery;
+  updateSearchActiveUI();
+  setTimeout(() => document.getElementById('searchInput').focus(), 120);
+}
+function closeSearch() { document.getElementById('searchOverlay').classList.remove('open'); }
+function bgClose(e) { if (e.target.id === 'searchOverlay') closeSearch(); }
+
+function onSearchInput() {
+  // 입력 중 실시간으로 UI만 업데이트 (검색은 Enter/버튼 클릭 시)
+  updateSearchActiveUI();
+}
+
+function doSearch() {
+  const val = document.getElementById('searchInput').value.trim();
+  if (!val) return;
+  searchQuery = val;
+  activeFilter = null;
+  resetFabs();
+  updateSearchActiveUI();
+  closeSearch();
+  refresh();
+  // 바텀시트 완전히 펼치기
+  const sheet = document.getElementById('bottomSheet');
+  if (sheet) sheet.style.transform = 'translateY(0)';
+  // 결과가 있으면 첫 번째 지점으로 지도 이동
+  if (filtered.length && map && typeof naver !== 'undefined') {
+    map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
+    map.setZoom(14);
+  }
+}
+
+function clearSearch() {
+  searchQuery = '';
+  document.getElementById('searchInput').value = '';
+  updateSearchActiveUI();
+  closeSearch();
+  // 바텀시트 1위만 보이는 기본 상태로 (약간 접힘)
+  const sheet = document.getElementById('bottomSheet');
+  if (sheet) sheet.style.transform = 'translateY(0)';
+  refresh();
+}
+
+function updateSearchActiveUI() {
+  const wrap = document.getElementById('searchActiveWrap');
+  const txt  = document.getElementById('searchActiveTxt');
+  const cur  = document.getElementById('searchInput').value.trim() || searchQuery;
+  if (cur) {
+    wrap.style.display = 'block';
+    txt.textContent = `"${cur}"`;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ── LIST RENDER ───────────────────────────────────────
+function makeCardHTML(s, i) {
+  const km = ((activeFilter === 'near' || currentSort === 'dist') && userPos)
+    ? `<span>📏 ${dist(s.lat,s.lng,userPos.lat,userPos.lng).toFixed(1)}km</span>` : '';
+  return `
+  <div class="store-card ${i===0?'active':''}" onclick="selectStore(${s.id})" id="sc-${s.id}">
+    <div class="s-rank ${i<3?'top':''}">${i+1}</div>
+    <div class="s-info">
+      <div class="s-name">${s.name}</div>
+      <div class="s-addr">📍 ${s.addr}</div>
+      <div class="s-badges">
+        ${s.rec ? '<span class="badge b-rec">🔥 추천 명당</span>' : ''}
+        <span class="badge b-win">🎯 1등 ${s.wins}회</span>
+      </div>
+      <div class="s-meta">
+        <span>💰 ${s.prize}억원</span>
+        <span>🕐 ${s.recent}</span>
+        ${km}
+      </div>
+    </div>
+    <div class="s-right">
+      <div class="s-wins">${s.wins}</div>
+      <div class="s-lbl">1등 배출</div>
+    </div>
+  </div>`;
+}
+
+function renderList() {
+  const container = document.getElementById('storeList');
+
+  // 카운트
+  document.getElementById('sheetCount').textContent =
+    searchQuery ? `검색결과 ${filtered.length}개` : `${filtered.length}개`;
+
+  // 결과 없음
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="padding:32px 18px;text-align:center;color:var(--muted)">
+        <div style="font-size:28px;margin-bottom:10px">🔍</div>
+        <div style="font-size:13px">"${searchQuery}"에 해당하는 지점이 없습니다.</div>
+        <div style="font-size:11px;margin-top:6px;opacity:.6">다른 검색어를 입력해 보세요.</div>
+      </div>`;
+    renderedCount = 0;
+    document.getElementById('lmWrap').style.display = 'none';
+    return;
+  }
+
+  // 검색 모드: 결과 전체를 즉시 표시 (더보기 없음)
+  // 일반 모드: 결과 10개 이하면 전부, 초과면 1개만 표시
+  const initCount = searchQuery
+    ? filtered.length
+    : (filtered.length <= LOAD_MORE_COUNT ? filtered.length : INITIAL_COUNT);
+
+  renderedCount = initCount;
+  container.innerHTML = filtered
+    .slice(0, initCount)
+    .map((s, i) => makeCardHTML(s, i))
+    .join('');
+
+  updateLM();
+}
+
+// ── LOAD MORE ─────────────────────────────────────────
+function updateLM() {
+  const wrap = document.getElementById('lmWrap');
+  const remaining = filtered.length - renderedCount;
+
+  if (remaining <= 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  document.getElementById('lmIcon').textContent = '▾';
+  document.getElementById('lmText').textContent =
+    `+ 더보기 (${Math.min(remaining, LOAD_MORE_COUNT)}개 더)`;
+}
+
+function toggleMore() {
+  const container = document.getElementById('storeList');
+  const from = renderedCount;
+  const to   = Math.min(renderedCount + LOAD_MORE_COUNT, filtered.length);
+
+  // 추가할 카드를 DOM에 append (기존 카드 유지)
+  const fragment = document.createDocumentFragment();
+  for (let i = from; i < to; i++) {
+    const div = document.createElement('div');
+    div.innerHTML = makeCardHTML(filtered[i], i).trim();
+    const card = div.firstChild;
+    card.classList.add('reveal');
+    fragment.appendChild(card);
+  }
+  container.appendChild(fragment);
+  renderedCount = to;
+
+  updateLM();
+}
+
+// ── SELECT STORE ──────────────────────────────────────
+function selectStore(id) {
+  const s = stores.find(x => x.id === id);
+  if (!s) return;
+
+  // 카드가 아직 DOM에 없으면 해당 위치까지 렌더링
+  const idx = filtered.findIndex(x => x.id === id);
+  if (idx >= renderedCount) {
+    const container = document.getElementById('storeList');
+    const to = idx + 1;
+    for (let i = renderedCount; i < to; i++) {
+      const div = document.createElement('div');
+      div.innerHTML = makeCardHTML(filtered[i], i).trim();
+      container.appendChild(div.firstChild);
+    }
+    renderedCount = to;
+    updateLM();
+  }
+
+  // highlight list
+  document.querySelectorAll('.store-card').forEach(el => el.classList.remove('active'));
+  const card = document.getElementById('sc-'+id);
+  if (card) { card.classList.remove('hidden'); card.scrollIntoView({block:'nearest',behavior:'smooth'}); card.classList.add('active'); }
+
+  // pan map
+  if (map && typeof naver !== 'undefined') map.panTo(new naver.maps.LatLng(s.lat, s.lng));
+
+  // popup
+  // 네이버 지도 검색 URL: 주소로 검색
+  const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(s.addr)}`;
+
+  document.getElementById('popupContent').innerHTML = `
+    <div class="popup-hd">
+      <div class="popup-icon">${s.rec?'🔥':'🎯'}</div>
+      <div>
+        <div class="popup-name">${s.name}${s.rec?' <span class="badge b-rec">추천 명당</span>':''}</div>
+        <div class="popup-addr">📍 ${s.addr}</div>
+      </div>
+    </div>
+    <div class="popup-stats">
+      <div class="ps"><div class="ps-v">${s.wins}</div><div class="ps-l">1등 배출</div></div>
+      <div class="ps"><div class="ps-v green">${s.prize}억</div><div class="ps-l">누적 상금</div></div>
+      <div class="ps"><div class="ps-v sm">${s.recent}</div><div class="ps-l">최근 당첨</div></div>
+    </div>
+    <a href="${naverMapUrl}" target="_blank" rel="noopener noreferrer"
+       style="display:flex;align-items:center;justify-content:center;gap:8px;
+              width:100%;padding:11px;border-radius:10px;
+              background:var(--primary);color:#fff;
+              font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;
+              text-decoration:none;transition:background .18s;"
+       onmouseover="this.style.background='var(--primary2)'"
+       onmouseout="this.style.background='var(--primary)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      네이버 지도에서 보기
+    </a>`;
+
+  const popup = document.getElementById('storePopup');
+  popup.style.bottom = (sheetH + 12) + 'px';
+  popup.classList.add('visible');
+}
+function closePopup() { document.getElementById('storePopup').classList.remove('visible'); }
+function sortStores(v) { currentSort = v; refresh(); }
+
+// ── SHEET DRAG ────────────────────────────────────────
+function setupDrag() {
+  const sheet = document.getElementById('bottomSheet');
+  const handle = document.getElementById('sheetHandle');
+  let sy = 0, dragging = false;
+
+  setTimeout(() => { sheetH = sheet.offsetHeight; }, 400);
+
+  handle.addEventListener('pointerdown', e => {
+    dragging = true; sy = e.clientY;
+    sheet.style.transition = 'none';
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dy = Math.max(0, Math.min(sheet.offsetHeight - 56, e.clientY - sy));
+    sheet.style.transform = `translateY(${dy}px)`;
+  });
+  handle.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    dragging = false;
+    sheet.style.transition = '';
+    const dy = e.clientY - sy;
+    sheet.style.transform = dy > 70 ? `translateY(${sheet.offsetHeight - 56}px)` : 'translateY(0)';
+  });
+}
+
+// ── BOOT ──────────────────────────────────────────────
+const NAVER_CLIENT_ID = 'a5y7q9sxkg'; // ← 발급받은 키 입력
+
+window.addEventListener('load', async () => {
+  setupDrag();
+
+  // 데이터 로드
+  await loadStoresFromJSON();
+
+  // 네이버 지도 동적 로드
+  loadNaverMap(NAVER_CLIENT_ID);
+});
+
+function loadNaverMap(clientId) {
+  // 키 미설정이면 바로 폴백
+  if (!clientId || clientId === 'YOUR_CLIENT_ID') {
+    showMapFallback('네이버 지도 API 키를 입력해주세요.');
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}&submodules=geocoder`;
+  script.onload = () => {
+    locateUser(pos => {
+      try {
+        const lat = pos ? pos.lat : 37.5665;
+        const lng = pos ? pos.lng : 126.9780;
+        initMap(lat, lng, pos ? 13 : 7);
+        placeMyMarker();
+
+        if (pos) {
+          // 위치 허용 → 내 주변 자동 활성화
+          activeFilter = 'near';
+          currentSort  = 'dist';
+          document.getElementById('fabNear').classList.add('on-green');
+          const sel = document.getElementById('sortSel');
+          if (sel) sel.value = 'dist';
+        } else {
+          // 위치 거부 → 전국 TOP30
+          activeFilter = 'top30';
+          currentSort  = 'wins';
+          document.getElementById('fabTop30').classList.add('on-gold');
+        }
+
+        refresh();
+        geocodeStores(stores, () => { if (map) renderMarkers(); });
+      } catch(e) {
+        console.error('지도 초기화 오류:', e);
+        showMapFallback('지도 초기화 중 오류가 발생했습니다.');
+        refresh();
+      }
+    });
+  };
+  script.onerror = () => {
+    showMapFallback('네이버 지도 API 로드 실패.<br>Client ID를 확인하거나 인터넷 연결을 확인하세요.');
+  };
+  document.head.appendChild(script);
+}
+
+function showMapFallback(msg) {
+  document.getElementById('map').innerHTML = `
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#E8F5EE,#F7F8FA);
+                display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:16px;padding:32px;text-align:center">
+      <div style="font-size:48px">🗺️</div>
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:18px;color:#2C8C5E">
+        네이버 지도 API 연동 필요
+      </div>
+      <div style="font-size:13px;color:#718096;line-height:1.8;max-width:320px">
+        ${msg}<br><br>
+        <code style="background:rgba(44,140,94,0.1);padding:2px 8px;border-radius:4px;
+                     color:#2C8C5E;font-size:12px">NAVER_CLIENT_ID</code> 값을 수정하세요.<br>
+        <span style="font-size:11px;opacity:.7">지점 목록·검색·필터는 정상 작동합니다.</span>
+      </div>
+    </div>`;
+  // 지도 없어도 목록 기능은 정상 동작 — 전국 TOP30 표시
+  userPos = null;
+  activeFilter = 'top30';
+  currentSort  = 'wins';
+  const fabTop30 = document.getElementById('fabTop30');
+  if (fabTop30) fabTop30.classList.add('on-gold');
+  refresh();
+}
+</script>
+</body>
+</html>
