@@ -221,12 +221,17 @@
   }
   .sheet-handle-area {
     display:flex; justify-content:center;
-    padding:10px 0 0; cursor:grab; user-select:none;
+    padding:10px 0; cursor:pointer; user-select:none;
+    transition:background .15s;
   }
+  .sheet-handle-area:hover { background:rgba(44,140,94,0.05); border-radius:20px 20px 0 0; }
+  .sheet-handle-area:active { background:rgba(44,140,94,0.1); }
   .sheet-handle {
     width:38px; height:4px;
     background:var(--primary-md); border-radius:2px;
+    transition:background .15s, width .15s;
   }
+  .sheet-handle-area:hover .sheet-handle { background:var(--primary); width:48px; }
   .sheet-inner {
     background:var(--card-bg);
     border-top:2px solid var(--primary);
@@ -414,8 +419,8 @@
 
 <!-- Bottom Sheet -->
 <div class="bottom-sheet" id="bottomSheet">
-  <div class="sheet-handle-area" id="sheetHandle">
-    <div class="sheet-handle"></div>
+  <div class="sheet-handle-area" id="sheetHandleArea">
+    <div class="sheet-handle" id="sheetHandle"></div>
   </div>
   <div class="sheet-inner">
     <div class="sheet-header">
@@ -710,20 +715,39 @@ function bindMapEvents() {
 
 // ── USER LOCATION ──────────────────────────────────────
 function locateUser(cb) {
-  if (!navigator.geolocation) { cb(null); return; }
+  if (!navigator.geolocation) {
+    cb(null);
+    return;
+  }
+
+  // 1차: 빠른 저정확도 위치 (즉시 지도 표시용)
   navigator.geolocation.getCurrentPosition(
     pos => {
       userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       placeMyMarker();
       cb(userPos);
+
+      // 2차: 고정확도 위치로 보정 (GPS)
+      navigator.geolocation.getCurrentPosition(
+        highPos => {
+          userPos = { lat: highPos.coords.latitude, lng: highPos.coords.longitude };
+          placeMyMarker();
+          // 내 주변 모드면 지도 중심도 보정
+          if (activeFilter === 'near' && map && typeof naver !== 'undefined') {
+            map.setCenter(new naver.maps.LatLng(userPos.lat, userPos.lng));
+            refresh();
+          }
+        },
+        () => {},  // 고정확도 실패 시 1차 위치 유지
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     },
-    () => {
-      // 고양시 fallback (사용자 위치 기반)
-      userPos = { lat: 37.6583, lng: 126.8320 };
-      placeMyMarker();
-      cb(userPos);
+    err => {
+      // 위치 거부(1) 또는 실패 → null 반환 (폴백 없음, 전국TOP30 표시)
+      console.warn('위치 권한 거부 또는 실패:', err.message);
+      cb(null);
     },
-    { timeout: 7000 }
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
   );
 }
 
@@ -839,13 +863,32 @@ function toggleFilter(type) {
     currentSort = 'dist';
     const sel = document.getElementById('sortSel');
     if (sel) sel.value = 'dist';
-    locateUser(pos => {
-      if (pos && map && typeof naver !== 'undefined') {
-        map.setCenter(new naver.maps.LatLng(pos.lat, pos.lng));
-        map.setZoom(13);
-      }
-      refresh();
-    });
+
+    // 내 주변 버튼 클릭 시 고정확도로 위치 재요청
+    if (!navigator.geolocation) {
+      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+      activeFilter = null;
+      resetFabs();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        placeMyMarker();
+        if (map && typeof naver !== 'undefined') {
+          map.setCenter(new naver.maps.LatLng(userPos.lat, userPos.lng));
+          map.setZoom(13);
+        }
+        refresh();
+      },
+      err => {
+        alert('위치를 가져올 수 없습니다.\n브라우저 설정에서 위치 권한을 허용해 주세요.');
+        activeFilter = null;
+        resetFabs();
+        refresh();
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   }
 }
 
@@ -1069,31 +1112,73 @@ function selectStore(id) {
 function closePopup() { document.getElementById('storePopup').classList.remove('visible'); }
 function sortStores(v) { currentSort = v; refresh(); }
 
-// ── SHEET DRAG ────────────────────────────────────────
+// ── SHEET DRAG & TOGGLE ───────────────────────────────
 function setupDrag() {
-  const sheet = document.getElementById('bottomSheet');
+  const sheet  = document.getElementById('bottomSheet');
   const handle = document.getElementById('sheetHandle');
-  let sy = 0, dragging = false;
+  const handleArea = document.getElementById('sheetHandleArea') || handle.parentElement;
+
+  let sy = 0, dragging = false, moved = false;
+  let isCollapsed = false;  // 현재 접힌 상태 여부
 
   setTimeout(() => { sheetH = sheet.offsetHeight; }, 400);
 
-  handle.addEventListener('pointerdown', e => {
-    dragging = true; sy = e.clientY;
+  // ── 토글 (탭/클릭) ───────────────────────────────────
+  function toggleSheet() {
+    sheet.style.transition = 'transform .35s cubic-bezier(0.32,0.72,0,1)';
+    if (isCollapsed) {
+      // 접혀있으면 → 펼치기
+      sheet.style.transform = 'translateY(0)';
+      isCollapsed = false;
+    } else {
+      // 펼쳐있으면 → 접기 (핸들만 보이게)
+      sheet.style.transform = `translateY(${sheet.offsetHeight - 56}px)`;
+      isCollapsed = true;
+    }
+  }
+
+  // ── 드래그 ───────────────────────────────────────────
+  handleArea.addEventListener('pointerdown', e => {
+    dragging = true;
+    moved    = false;
+    sy       = e.clientY;
     sheet.style.transition = 'none';
-    handle.setPointerCapture(e.pointerId);
+    handleArea.setPointerCapture(e.pointerId);
   });
-  handle.addEventListener('pointermove', e => {
+
+  handleArea.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const dy = Math.max(0, Math.min(sheet.offsetHeight - 56, e.clientY - sy));
-    sheet.style.transform = `translateY(${dy}px)`;
+    const dy = e.clientY - sy;
+    if (Math.abs(dy) > 5) moved = true;
+    if (!moved) return;
+    const clamped = Math.max(0, Math.min(sheet.offsetHeight - 56, dy));
+    sheet.style.transform = `translateY(${clamped}px)`;
   });
-  handle.addEventListener('pointerup', e => {
+
+  handleArea.addEventListener('pointerup', e => {
     if (!dragging) return;
     dragging = false;
-    sheet.style.transition = '';
+    sheet.style.transition = 'transform .35s cubic-bezier(0.32,0.72,0,1)';
+
+    if (!moved) {
+      // 드래그 없이 탭 → 토글
+      toggleSheet();
+      return;
+    }
+
+    // 드래그 거리로 펼침/접힘 결정
     const dy = e.clientY - sy;
-    sheet.style.transform = dy > 70 ? `translateY(${sheet.offsetHeight - 56}px)` : 'translateY(0)';
+    if (dy > 80) {
+      sheet.style.transform = `translateY(${sheet.offsetHeight - 56}px)`;
+      isCollapsed = true;
+    } else {
+      sheet.style.transform = 'translateY(0)';
+      isCollapsed = false;
+    }
   });
+
+  // 핸들 커서 스타일
+  handleArea.style.cursor = 'pointer';
 }
 
 // ── BOOT ──────────────────────────────────────────────
