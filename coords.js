@@ -85,67 +85,151 @@ const COORD_TABLE = [
   { kw:["서귀포","서홍","동홍","강정","대정"],           lat:33.253, lng:126.560 },
 ];
 
-// 지오코딩 결과 캐시 (세션 동안 유지)
-const _geoCache = {};
+// ── 지오코딩 결과 캐시 (localStorage 영구 저장) ──────────────
+// 값: {lat,lng} = 성공 / false = 실패(재시도 안 함) / undefined = 미조회
+const GEO_CACHE_KEY = 'lottoGeoCacheV1';
+let _geoCache = {};
+try { _geoCache = JSON.parse(localStorage.getItem(GEO_CACHE_KEY)) || {}; } catch (e) {}
+
+// 사전 지오코딩된 좌표 파일(coords_cache.json)을 읽어 캐시에 병합.
+// 방문자 브라우저에서 지오코딩 API를 거의 호출하지 않게 됨.
+async function loadCoordCache(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return 0;
+    const data = await res.json();
+    let merged = 0;
+    for (const addr in data) {
+      if (_geoCache[addr] === undefined) { _geoCache[addr] = data[addr]; merged++; }
+    }
+    return merged;
+  } catch (e) {
+    return 0; // 파일 없으면 기존 방식(브라우저 지오코딩)으로 동작
+  }
+}
+
+let _geoSaveTimer = null;
+function saveGeoCache() {
+  clearTimeout(_geoSaveTimer);
+  _geoSaveTimer = setTimeout(() => {
+    try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(_geoCache)); } catch (e) {}
+  }, 800);
+}
+
+// 주소 정제: 도로명+건물번호까지만 남기고 뒤의 상세(호수 등) 제거
+// "지하 2100" 같은 지하상가 표기도 허용
+// 예) "인천 연수구 경원대로483번길 6 103호401-3 103호" → "인천 연수구 경원대로483번길 6"
+function cleanAddr(addr) {
+  const m = addr.match(/^(.+?(?:로|길)\s*(?:지하\s*)?\d+(?:-\d+)?)(?=\s|,|$)/);
+  return m ? m[1] : addr;
+}
 
 /**
- * 주소 → 위경도 변환
- * 1순위: 네이버 지오코더 API (정확) — NAVER_CLIENT_ID 가 설정된 경우
- * 2순위: COORD_TABLE 키워드 매칭 (근사치) — 오프셋 없음
+ * 주소 → 위경도 변환 (동기)
+ * 1순위: 지오코딩 캐시 (정확한 좌표)
+ * 2순위: COORD_TABLE 키워드 매칭 (구/동 중심점 근사치)
  * 3순위: 서울 시청 폴백
  */
 function addrToLatLng(addr) {
-  // COORD_TABLE 매칭 (오프셋 없이 정확한 구/동 중심점 반환)
+  const cached = _geoCache[addr];
+  if (cached && cached.lat) return { lat: cached.lat, lng: cached.lng };
+
   for (const entry of COORD_TABLE) {
     if (entry.kw.some(kw => addr.includes(kw))) {
       return { lat: entry.lat, lng: entry.lng };
     }
   }
-  // 폴백: 서울 시청
   return { lat: 37.5665, lng: 126.9780 };
 }
 
-/**
- * 네이버 지오코더로 정확한 좌표를 비동기 조회 후 store 좌표를 업데이트.
- * 50개씩 배치 처리해 API 과호출을 방지합니다.
- */
-function geocodeStores(storeList, onDone) {
-  if (typeof naver === 'undefined' || !naver.maps || !naver.maps.Service) return;
+// 캐시에 있는 정확한 좌표를 store 목록에 반영
+function applyGeoCache(list) {
+  list.forEach(s => {
+    const c = _geoCache[s.addr];
+    if (c && c.lat) { s.lat = c.lat; s.lng = c.lng; }
+  });
+}
 
-  const BATCH = 50;       // 한 번에 요청할 최대 수
-  const INTERVAL = 100;   // 배치 간 딜레이 (ms)
+// ── 네이버 지오코더 비동기 큐 ────────────────────────────────
+// 나중에 요청된 목록(= 지금 화면에 보이는 지점)이 큐 맨 앞에 오도록 재배치.
+// 배치가 끝날 때마다 onUpdate(isDone) 콜백 → 핀을 점진적으로 정확하게 갱신.
+const _geoQueue = [];
+let _geoRunning = false;
+let _geoOnUpdate = null;
 
-  // COORD_TABLE로 이미 충분히 특정된 것 제외, 미세 좌표가 필요한 것만 요청
-  const targets = storeList.filter(s => !_geoCache[s.addr]);
-  let done = 0;
-  const total = targets.length;
+function geocodeStores(storeList, onUpdate) {
+  if (typeof naver === 'undefined' || !naver.maps) return;
+  if (onUpdate) _geoOnUpdate = onUpdate;
 
-  if (total === 0) { if (onDone) onDone(); return; }
-
-  function processBatch(batchIdx) {
-    const batch = targets.slice(batchIdx * BATCH, (batchIdx + 1) * BATCH);
-    if (batch.length === 0) { if (onDone) onDone(); return; }
-
-    batch.forEach(s => {
-      naver.maps.Service.geocode({ query: s.addr }, (status, res) => {
-        if (status === naver.maps.Service.Status.OK && res.v2.addresses.length > 0) {
-          const loc = res.v2.addresses[0];
-          const lat = parseFloat(loc.y);
-          const lng = parseFloat(loc.x);
-          _geoCache[s.addr] = { lat, lng };
-          s.lat = lat;
-          s.lng = lng;
-        }
-        done++;
-        if (done === total && onDone) onDone();
-      });
-    });
-
-    // 다음 배치 예약
-    if ((batchIdx + 1) * BATCH < total) {
-      setTimeout(() => processBatch(batchIdx + 1), INTERVAL);
-    }
+  // geocoder 서브모듈은 maps.js 로드 후 비동기로 로드됨 → 준비될 때까지 재시도
+  if (!naver.maps.Service) {
+    setTimeout(() => geocodeStores(storeList), 500);
+    return;
   }
 
-  processBatch(0);
+  // 미조회 주소만, 주소 중복 제거
+  const seen = new Set();
+  const wanted = [];
+  for (const s of storeList) {
+    if (_geoCache[s.addr] !== undefined || seen.has(s.addr)) continue;
+    seen.add(s.addr);
+    wanted.push(s);
+  }
+  if (wanted.length === 0) return;
+
+  // 이미 큐에 있던 동일 주소는 제거하고, 이번 요청분을 맨 앞에 배치
+  const rest = _geoQueue.filter(s => !seen.has(s.addr));
+  _geoQueue.length = 0;
+  _geoQueue.push(...wanted, ...rest);
+
+  if (!_geoRunning) runGeoQueue();
+}
+
+function runGeoQueue() {
+  const BATCH = 40;
+  const INTERVAL = 250;
+
+  // 처리 도중 캐시가 채워진 항목은 건너뛰기
+  while (_geoQueue.length && _geoCache[_geoQueue[0].addr] !== undefined) _geoQueue.shift();
+
+  if (_geoQueue.length === 0) {
+    _geoRunning = false;
+    saveGeoCache();
+    if (_geoOnUpdate) _geoOnUpdate(true);
+    return;
+  }
+
+  _geoRunning = true;
+  const batch = _geoQueue.splice(0, BATCH);
+  let done = 0;
+  let advanced = false;
+
+  const advance = () => {
+    if (advanced) return;
+    advanced = true;
+    saveGeoCache();
+    if (_geoOnUpdate) _geoOnUpdate(false);
+    setTimeout(runGeoQueue, INTERVAL);
+  };
+
+  batch.forEach(s => {
+    naver.maps.Service.geocode({ query: cleanAddr(s.addr) }, (status, res) => {
+      if (status === naver.maps.Service.Status.OK &&
+          res.v2 && res.v2.addresses && res.v2.addresses.length > 0) {
+        const loc = res.v2.addresses[0];
+        const lat = parseFloat(loc.y);
+        const lng = parseFloat(loc.x);
+        _geoCache[s.addr] = { lat, lng };
+        s.lat = lat;
+        s.lng = lng;
+      } else {
+        _geoCache[s.addr] = false; // 실패 기록 → 매번 재시도하지 않음
+      }
+      done++;
+      if (done === batch.length) advance();
+    });
+  });
+
+  // 콜백이 안 오는 경우에도 큐가 멈추지 않도록 안전장치
+  setTimeout(advance, 6000);
 }

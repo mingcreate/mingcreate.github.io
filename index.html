@@ -198,7 +198,7 @@
   }
   .popup-name { font-size:15px; font-weight:700; color:var(--text); }
   .popup-addr { font-size:11px; color:var(--muted); margin-top:2px; }
-  .popup-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+  .popup-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; margin-bottom:10px; }
   .ps { background:var(--surface); border-radius:9px; padding:8px; text-align:center; }
   .ps-v { font-family:'Black Han Sans',sans-serif; font-size:18px; color:var(--primary); }
   .ps-v.green { color:var(--accent); font-size:14px; }
@@ -221,17 +221,12 @@
   }
   .sheet-handle-area {
     display:flex; justify-content:center;
-    padding:10px 0; cursor:pointer; user-select:none;
-    transition:background .15s;
+    padding:10px 0 0; cursor:grab; user-select:none;
   }
-  .sheet-handle-area:hover { background:rgba(44,140,94,0.05); border-radius:20px 20px 0 0; }
-  .sheet-handle-area:active { background:rgba(44,140,94,0.1); }
   .sheet-handle {
     width:38px; height:4px;
     background:var(--primary-md); border-radius:2px;
-    transition:background .15s, width .15s;
   }
-  .sheet-handle-area:hover .sheet-handle { background:var(--primary); width:48px; }
   .sheet-inner {
     background:var(--card-bg);
     border-top:2px solid var(--primary);
@@ -336,6 +331,10 @@
   .nv-cluster-label {
     font-size:9px; color:rgba(255,255,255,0.85); margin-top:1px;
   }
+  .nv-marker {
+    width:120px;
+    display:flex; flex-direction:column; align-items:center;
+  }
   .nv-bubble {
     background:#fff; border:2px solid var(--primary);
     border-radius:10px; padding:4px 8px;
@@ -419,8 +418,8 @@
 
 <!-- Bottom Sheet -->
 <div class="bottom-sheet" id="bottomSheet">
-  <div class="sheet-handle-area" id="sheetHandleArea">
-    <div class="sheet-handle" id="sheetHandle"></div>
+  <div class="sheet-handle-area" id="sheetHandle">
+    <div class="sheet-handle"></div>
   </div>
   <div class="sheet-inner">
     <div class="sheet-header">
@@ -430,7 +429,6 @@
       </div>
       <select class="sort-sel" onchange="sortStores(this.value)" id="sortSel">
         <option value="wins">당첨 횟수순</option>
-        <option value="prize">누적 상금순</option>
         <option value="recent">최근 당첨순</option>
         <option value="dist">거리순 (내 주변)</option>
       </select>
@@ -566,6 +564,8 @@ function setLoadingState(isLoading, msg = "") {
 }
 
 // ── STATE ─────────────────────────────────────────────
+const FALLBACK_CENTER = { lat: 37.5665, lng: 126.9780 }; // 서울시청 (위치 거부 시 기준점)
+const NEAR_RADIUS_KM = 1; // '내 주변' 필터 반경
 let map = null;
 let markers = [];
 let myMarker = null;
@@ -673,7 +673,8 @@ function renderMarkers() {
           </div>
           <div class="nv-tail ${cls}"></div>
         </div>`;
-      anchor = new naver.maps.Point(52, 42);
+      // 꼬리 끝(가로 중앙·세로 맨 아래)이 정확히 좌표를 가리키도록
+      anchor = new naver.maps.Point(60, 36);
     } else {
       // 클러스터 마커: 원형 + 지점 수 + 총 당첨 횟수
       const size = Math.max(44, Math.min(72, 36 + c.count * 2));
@@ -706,6 +707,21 @@ function renderMarkers() {
   });
 }
 
+// ── 지오코딩 진행에 따른 점진적 핀 갱신 ────────────────
+let _rmPending = false;
+function scheduleRenderMarkers() {
+  if (_rmPending) return;
+  _rmPending = true;
+  setTimeout(() => { _rmPending = false; if (map) renderMarkers(); }, 800);
+}
+
+// 지오코딩 배치가 끝날 때마다 호출됨 (isDone: 큐 전체 완료 여부)
+function onGeoUpdate(isDone) {
+  applyGeoCache(stores);
+  scheduleRenderMarkers();
+  if (isDone) refresh(); // 정확한 좌표 기준으로 거리/필터 최종 반영
+}
+
 // 줌/이동 시 클러스터 재계산
 function bindMapEvents() {
   if (!map) return;
@@ -715,39 +731,19 @@ function bindMapEvents() {
 
 // ── USER LOCATION ──────────────────────────────────────
 function locateUser(cb) {
-  if (!navigator.geolocation) {
-    cb(null);
-    return;
-  }
-
-  // 1차: 빠른 저정확도 위치 (즉시 지도 표시용)
+  if (!navigator.geolocation) { cb(null); return; }
   navigator.geolocation.getCurrentPosition(
     pos => {
       userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       placeMyMarker();
       cb(userPos);
-
-      // 2차: 고정확도 위치로 보정 (GPS)
-      navigator.geolocation.getCurrentPosition(
-        highPos => {
-          userPos = { lat: highPos.coords.latitude, lng: highPos.coords.longitude };
-          placeMyMarker();
-          // 내 주변 모드면 지도 중심도 보정
-          if (activeFilter === 'near' && map && typeof naver !== 'undefined') {
-            map.setCenter(new naver.maps.LatLng(userPos.lat, userPos.lng));
-            refresh();
-          }
-        },
-        () => {},  // 고정확도 실패 시 1차 위치 유지
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
     },
-    err => {
-      // 위치 거부(1) 또는 실패 → null 반환 (폴백 없음, 전국TOP30 표시)
-      console.warn('위치 권한 거부 또는 실패:', err.message);
+    () => {
+      // 위치 거부/실패 → userPos 없음 (서울시청 기준으로 동작)
+      userPos = null;
       cb(null);
     },
-    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+    { timeout: 7000, enableHighAccuracy: true, maximumAge: 60000 }
   );
 }
 
@@ -791,19 +787,17 @@ function buildList() {
     // 당첨횟수순 상위 30개
     list = [...base].sort((a,b) => b.wins - a.wins).slice(0, 30);
     return list;
-  } else if (activeFilter === 'near' && userPos) {
-    list = list.filter(s => dist(s.lat, s.lng, userPos.lat, userPos.lng) <= 15);
+  } else if (activeFilter === 'near') {
+    const ref = userPos || FALLBACK_CENTER;
+    list = list.filter(s => dist(s.lat, s.lng, ref.lat, ref.lng) <= NEAR_RADIUS_KM);
   }
 
   // 정렬 — near 포함 모든 모드에서 currentSort 적용
   if (currentSort === 'wins')   list.sort((a,b) => b.wins - a.wins);
-  else if (currentSort === 'prize')  list.sort((a,b) => b.prize - a.prize);
   else if (currentSort === 'recent') list.sort((a,b) => parseInt(b.recent) - parseInt(a.recent));
-  else if (currentSort === 'dist' && userPos) {
-    list.sort((a,b) => dist(a.lat,a.lng,userPos.lat,userPos.lng) - dist(b.lat,b.lng,userPos.lat,userPos.lng));
-  } else if (activeFilter === 'near' && userPos) {
-    // 거리순이 기본값이므로 이 분기는 사실상 안 탐
-    list.sort((a,b) => dist(a.lat,a.lng,userPos.lat,userPos.lng) - dist(b.lat,b.lng,userPos.lat,userPos.lng));
+  else if (currentSort === 'dist') {
+    const ref = userPos || FALLBACK_CENTER;
+    list.sort((a,b) => dist(a.lat,a.lng,ref.lat,ref.lng) - dist(b.lat,b.lng,ref.lat,ref.lng));
   }
 
   return list;
@@ -829,6 +823,9 @@ function refresh() {
 
   if (map) renderMarkers();
   renderList();
+
+  // 현재 보이는 지점들을 지오코딩 우선순위 맨 앞으로
+  if (map && typeof geocodeStores === 'function') geocodeStores(filtered, onGeoUpdate);
 }
 
 // ── FAB FILTER TOGGLE ─────────────────────────────────
@@ -839,6 +836,13 @@ function resetFabs() {
 }
 
 function toggleFilter(type) {
+  // 검색 중에 필터 버튼을 누르면 검색을 자동 초기화
+  if (searchQuery) {
+    searchQuery = '';
+    const inp = document.getElementById('searchInput');
+    if (inp) inp.value = '';
+    updateSearchActiveUI();
+  }
   if (activeFilter === type) {
     activeFilter = null;
     resetFabs();
@@ -860,35 +864,17 @@ function toggleFilter(type) {
     refresh();
   } else if (type === 'near') {
     document.getElementById('fabNear').classList.add('on-green');
-    currentSort = 'dist';
+    currentSort = 'wins'; // 내 주변도 당첨 많은 순이 기본
     const sel = document.getElementById('sortSel');
-    if (sel) sel.value = 'dist';
-
-    // 내 주변 버튼 클릭 시 고정확도로 위치 재요청
-    if (!navigator.geolocation) {
-      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
-      activeFilter = null;
-      resetFabs();
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        placeMyMarker();
-        if (map && typeof naver !== 'undefined') {
-          map.setCenter(new naver.maps.LatLng(userPos.lat, userPos.lng));
-          map.setZoom(13);
-        }
-        refresh();
-      },
-      err => {
-        alert('위치를 가져올 수 없습니다.\n브라우저 설정에서 위치 권한을 허용해 주세요.');
-        activeFilter = null;
-        resetFabs();
-        refresh();
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    if (sel) sel.value = 'wins';
+    locateUser(pos => {
+      const center = pos || FALLBACK_CENTER; // 거부 시 서울시청 기준
+      if (map && typeof naver !== 'undefined') {
+        map.setCenter(new naver.maps.LatLng(center.lat, center.lng));
+        map.setZoom(15); // 반경 약 1km
+      }
+      refresh();
+    });
   }
 }
 
@@ -952,8 +938,9 @@ function updateSearchActiveUI() {
 
 // ── LIST RENDER ───────────────────────────────────────
 function makeCardHTML(s, i) {
-  const km = ((activeFilter === 'near' || currentSort === 'dist') && userPos)
-    ? `<span>📏 ${dist(s.lat,s.lng,userPos.lat,userPos.lng).toFixed(1)}km</span>` : '';
+  const ref = userPos || FALLBACK_CENTER;
+  const km = (activeFilter === 'near' || currentSort === 'dist')
+    ? `<span>📏 ${dist(s.lat,s.lng,ref.lat,ref.lng).toFixed(1)}km</span>` : '';
   return `
   <div class="store-card ${i===0?'active':''}" onclick="selectStore(${s.id})" id="sc-${s.id}">
     <div class="s-rank ${i<3?'top':''}">${i+1}</div>
@@ -965,7 +952,6 @@ function makeCardHTML(s, i) {
         <span class="badge b-win">🎯 1등 ${s.wins}회</span>
       </div>
       <div class="s-meta">
-        <span>💰 ${s.prize}억원</span>
         <span>🕐 ${s.recent}</span>
         ${km}
       </div>
@@ -986,11 +972,17 @@ function renderList() {
 
   // 결과 없음
   if (filtered.length === 0) {
+    const emptyMsg = searchQuery
+      ? `<div style="font-size:13px">"${searchQuery}"에 해당하는 지점이 없습니다.</div>
+         <div style="font-size:11px;margin-top:6px;opacity:.6">다른 검색어를 입력해 보세요.</div>`
+      : activeFilter === 'near'
+      ? `<div style="font-size:13px">내 주변 ${NEAR_RADIUS_KM}km 안에 1등 배출 지점이 없습니다.</div>
+         <div style="font-size:11px;margin-top:6px;opacity:.6">🏆 전국 TOP30 버튼으로 명당을 찾아보세요.</div>`
+      : `<div style="font-size:13px">표시할 지점이 없습니다.</div>`;
     container.innerHTML = `
       <div style="padding:32px 18px;text-align:center;color:var(--muted)">
         <div style="font-size:28px;margin-bottom:10px">🔍</div>
-        <div style="font-size:13px">"${searchQuery}"에 해당하는 지점이 없습니다.</div>
-        <div style="font-size:11px;margin-top:6px;opacity:.6">다른 검색어를 입력해 보세요.</div>
+        ${emptyMsg}
       </div>`;
     renderedCount = 0;
     document.getElementById('lmWrap').style.display = 'none';
@@ -1048,6 +1040,13 @@ function toggleMore() {
 }
 
 // ── SELECT STORE ──────────────────────────────────────
+// 네이버 지도 검색어: 정제된 도로명주소 (건물번호까지, 호수 등 세부주소 제외)
+// 판매점 다수가 네이버 플레이스에 미등록된 가판점이라 상호 검색은 결과가 없음.
+// 주소 검색은 등록 여부와 무관하게 항상 정확한 위치에 핀이 표시됨.
+function buildMapQuery(s) {
+  return cleanAddr(s.addr || '');
+}
+
 function selectStore(id) {
   const s = stores.find(x => x.id === id);
   if (!s) return;
@@ -1075,8 +1074,8 @@ function selectStore(id) {
   if (map && typeof naver !== 'undefined') map.panTo(new naver.maps.LatLng(s.lat, s.lng));
 
   // popup
-  // 네이버 지도 검색 URL: 주소로 검색
-  const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(s.addr)}`;
+  // 네이버 지도 검색 URL: 정제된 도로명주소로 검색 → 정확한 위치에 핀 표시
+  const naverMapUrl = `https://map.naver.com/p/search/${encodeURIComponent(buildMapQuery(s))}`;
 
   document.getElementById('popupContent').innerHTML = `
     <div class="popup-hd">
@@ -1088,7 +1087,6 @@ function selectStore(id) {
     </div>
     <div class="popup-stats">
       <div class="ps"><div class="ps-v">${s.wins}</div><div class="ps-l">1등 배출</div></div>
-      <div class="ps"><div class="ps-v green">${s.prize}억</div><div class="ps-l">누적 상금</div></div>
       <div class="ps"><div class="ps-v sm">${s.recent}</div><div class="ps-l">최근 당첨</div></div>
     </div>
     <a href="${naverMapUrl}" target="_blank" rel="noopener noreferrer"
@@ -1112,73 +1110,31 @@ function selectStore(id) {
 function closePopup() { document.getElementById('storePopup').classList.remove('visible'); }
 function sortStores(v) { currentSort = v; refresh(); }
 
-// ── SHEET DRAG & TOGGLE ───────────────────────────────
+// ── SHEET DRAG ────────────────────────────────────────
 function setupDrag() {
-  const sheet  = document.getElementById('bottomSheet');
+  const sheet = document.getElementById('bottomSheet');
   const handle = document.getElementById('sheetHandle');
-  const handleArea = document.getElementById('sheetHandleArea') || handle.parentElement;
-
-  let sy = 0, dragging = false, moved = false;
-  let isCollapsed = false;  // 현재 접힌 상태 여부
+  let sy = 0, dragging = false;
 
   setTimeout(() => { sheetH = sheet.offsetHeight; }, 400);
 
-  // ── 토글 (탭/클릭) ───────────────────────────────────
-  function toggleSheet() {
-    sheet.style.transition = 'transform .35s cubic-bezier(0.32,0.72,0,1)';
-    if (isCollapsed) {
-      // 접혀있으면 → 펼치기
-      sheet.style.transform = 'translateY(0)';
-      isCollapsed = false;
-    } else {
-      // 펼쳐있으면 → 접기 (핸들만 보이게)
-      sheet.style.transform = `translateY(${sheet.offsetHeight - 56}px)`;
-      isCollapsed = true;
-    }
-  }
-
-  // ── 드래그 ───────────────────────────────────────────
-  handleArea.addEventListener('pointerdown', e => {
-    dragging = true;
-    moved    = false;
-    sy       = e.clientY;
+  handle.addEventListener('pointerdown', e => {
+    dragging = true; sy = e.clientY;
     sheet.style.transition = 'none';
-    handleArea.setPointerCapture(e.pointerId);
+    handle.setPointerCapture(e.pointerId);
   });
-
-  handleArea.addEventListener('pointermove', e => {
+  handle.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const dy = e.clientY - sy;
-    if (Math.abs(dy) > 5) moved = true;
-    if (!moved) return;
-    const clamped = Math.max(0, Math.min(sheet.offsetHeight - 56, dy));
-    sheet.style.transform = `translateY(${clamped}px)`;
+    const dy = Math.max(0, Math.min(sheet.offsetHeight - 56, e.clientY - sy));
+    sheet.style.transform = `translateY(${dy}px)`;
   });
-
-  handleArea.addEventListener('pointerup', e => {
+  handle.addEventListener('pointerup', e => {
     if (!dragging) return;
     dragging = false;
-    sheet.style.transition = 'transform .35s cubic-bezier(0.32,0.72,0,1)';
-
-    if (!moved) {
-      // 드래그 없이 탭 → 토글
-      toggleSheet();
-      return;
-    }
-
-    // 드래그 거리로 펼침/접힘 결정
+    sheet.style.transition = '';
     const dy = e.clientY - sy;
-    if (dy > 80) {
-      sheet.style.transform = `translateY(${sheet.offsetHeight - 56}px)`;
-      isCollapsed = true;
-    } else {
-      sheet.style.transform = 'translateY(0)';
-      isCollapsed = false;
-    }
+    sheet.style.transform = dy > 70 ? `translateY(${sheet.offsetHeight - 56}px)` : 'translateY(0)';
   });
-
-  // 핸들 커서 스타일
-  handleArea.style.cursor = 'pointer';
 }
 
 // ── BOOT ──────────────────────────────────────────────
@@ -1187,7 +1143,8 @@ const NAVER_CLIENT_ID = 'a5y7q9sxkg'; // ← 발급받은 키 입력
 window.addEventListener('load', async () => {
   setupDrag();
 
-  // 데이터 로드
+  // 사전 지오코딩 좌표 로드 → 지점 데이터 로드 (좌표가 즉시 정확하게 매핑됨)
+  await loadCoordCache('./coords_cache.json?v=' + Date.now());
   await loadStoresFromJSON();
 
   // 네이버 지도 동적 로드
@@ -1206,27 +1163,23 @@ function loadNaverMap(clientId) {
   script.onload = () => {
     locateUser(pos => {
       try {
-        const lat = pos ? pos.lat : 37.5665;
-        const lng = pos ? pos.lng : 126.9780;
-        initMap(lat, lng, pos ? 13 : 7);
-        placeMyMarker();
+        // 항상 내 주변 반경 약 1km 줌으로 시작 (위치 거부 시 서울시청 중심)
+        const center = pos || FALLBACK_CENTER;
+        initMap(center.lat, center.lng, 15);
+        if (pos) placeMyMarker();
 
-        if (pos) {
-          // 위치 허용 → 내 주변 자동 활성화
-          activeFilter = 'near';
-          currentSort  = 'dist';
-          document.getElementById('fabNear').classList.add('on-green');
-          const sel = document.getElementById('sortSel');
-          if (sel) sel.value = 'dist';
-        } else {
-          // 위치 거부 → 전국 TOP30
-          activeFilter = 'top30';
-          currentSort  = 'wins';
-          document.getElementById('fabTop30').classList.add('on-gold');
-        }
+        activeFilter = 'near';
+        currentSort  = 'wins'; // 내 주변도 당첨 많은 순이 기본
+        document.getElementById('fabNear').classList.add('on-green');
+        const sel = document.getElementById('sortSel');
+        if (sel) sel.value = 'wins';
 
         refresh();
-        geocodeStores(stores, () => { if (map) renderMarkers(); });
+
+        // 화면에 보이는(필터된) 지점부터 정확한 좌표로 지오코딩, 나머지는 백그라운드
+        const inView = new Set(filtered.map(s => s.id));
+        const prioritized = [...filtered, ...stores.filter(s => !inView.has(s.id))];
+        geocodeStores(prioritized, onGeoUpdate);
       } catch(e) {
         console.error('지도 초기화 오류:', e);
         showMapFallback('지도 초기화 중 오류가 발생했습니다.');
