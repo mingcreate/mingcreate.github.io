@@ -1038,13 +1038,56 @@ function buildMapQuery(s) {
   return cleanAddr(s.addr || '');
 }
 
+// ── 네이버 플레이스 매칭 (match_places.py 산출물, 없으면 빈 객체) ──
+// 등록된 업체는 주소 대신 "등록 상호"로 검색 → 이름·리뷰가 있는 플레이스 카드가 뜸
+let placeMatch = {};
+async function loadPlaceMatch() {
+  try {
+    const res = await fetch('./naver_places.json?v=' + Date.now(), { cache: 'no-cache' });
+    if (res.ok) placeMatch = await res.json();
+  } catch (e) { /* 파일 없으면 주소 검색 폴백 */ }
+}
+
+// 지점별 최적 웹 URL: 플레이스 매칭 있으면 상호 검색, 없으면 주소 검색
+function naverWebUrl(s) {
+  const pm = placeMatch[s.addr];
+  const q = pm && pm.q ? pm.q : buildMapQuery(s);
+  return `https://map.naver.com/p/search/${encodeURIComponent(q)}`;
+}
+
+// 모바일: 네이버지도 앱 딥링크로 "점포명이 붙은 마커"를 정확한 좌표에 표시.
+// 앱이 안 열리면(미설치) 1.5초 후 웹 검색으로 폴백. 데스크톱은 웹 링크 그대로.
+function openNaverMapClick(id, e) {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile) return true; // 데스크톱 → <a> 기본 동작 (플레이스/주소 검색)
+
+  e.preventDefault();
+  const s = stores.find(x => x.id === id);
+  if (!s) return false;
+  const webUrl = e.currentTarget.href;
+  const appUrl = `nmap://place?lat=${s.lat}&lng=${s.lng}`
+    + `&name=${encodeURIComponent(s.name)}`
+    + `&appname=${encodeURIComponent(location.origin)}`;
+
+  const t = setTimeout(() => window.open(webUrl, '_blank'), 1500);
+  const cancel = () => {
+    clearTimeout(t);
+    document.removeEventListener('visibilitychange', cancel);
+    window.removeEventListener('pagehide', cancel);
+  };
+  document.addEventListener('visibilitychange', cancel); // 앱으로 전환되면 폴백 취소
+  window.addEventListener('pagehide', cancel);
+  location.href = appUrl;
+  return false;
+}
+
 function openDetail(id) {
   const s = stores.find(x => x.id === id);
   if (!s) return;
   selectedId = id;
 
   const gold = s.winRank === 1;
-  const naverMapUrl = `https://map.naver.com/p/search/${encodeURIComponent(buildMapQuery(s))}`;
+  const naverMapUrl = naverWebUrl(s);
   const roundsDesc = [...s.rounds].sort((a, b) => b - a);
   const histRows = roundsDesc.map(r => `
     <div class="d-hrow">
@@ -1065,7 +1108,8 @@ function openDetail(id) {
     <div class="d-hist">${histRows || '<div class="d-hrow"><span class="dt">내역 없음</span></div>'}</div>`;
 
   document.getElementById('detailCta').innerHTML = `
-    <a class="naver-btn" href="${naverMapUrl}" target="_blank" rel="noopener noreferrer">
+    <a class="naver-btn" href="${naverMapUrl}" target="_blank" rel="noopener noreferrer"
+       onclick="return openNaverMapClick(${s.id}, event)">
       <span class="naver-n">N</span> 네이버지도로 이동
     </a>`;
 
@@ -1268,8 +1312,11 @@ window.addEventListener('load', async () => {
   // 로딩 표시
   renderSheet();
 
-  // 사전 지오코딩 좌표 로드 → 지점 데이터 로드 (좌표가 즉시 정확하게 매핑됨)
-  await loadCoordCache('./coords_cache.json?v=' + Date.now());
+  // 사전 지오코딩 좌표 + 플레이스 매칭 로드 → 지점 데이터 로드
+  await Promise.all([
+    loadCoordCache('./coords_cache.json?v=' + Date.now()),
+    loadPlaceMatch(),
+  ]);
   await loadStoresFromJSON();
 
   loadNaverMap(NAVER_CLIENT_ID);
