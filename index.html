@@ -11,20 +11,17 @@
     --primary:   #12B981;
     --primary2:  #0B7A55;
     --primary-lt:#E7F7F0;
-    --primary-md:#A9E6CC;
-    --accent:    #12B981;
-    --red:       #E53E3E;
     --dark:      #16181A;
     --naver:     #03C75A;
     --bg:        #F6F7F4;
-    --card-bg:   #FFFFFF;
     --card-border:#EAECE6;
     --text:      #16181A;
     --text2:     #3B4038;
     --muted:     #8A8F86;
+    --muted2:    #9AA096;
+    --muted3:    #6B7069;
     --surface:   #F2F4EF;
     --divider:   #EEF0EB;
-    --shadow:    rgba(0,0,0,0.08);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -35,167 +32,215 @@
     font-family:Pretendard,-apple-system,system-ui,'Noto Sans KR',sans-serif;
     background:var(--bg); color:var(--text);
   }
+  ::-webkit-scrollbar { display:none; }
+
+  @keyframes screenIn { from{opacity:0} to{opacity:1} }
+  @keyframes sheetUp  { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+  @keyframes toastIn  { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
+  @keyframes bounce   { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }
 
   /* ── MAP ── */
   #map { position:fixed; inset:0; width:100%; height:100%; z-index:0; }
 
-  /* ── TOP FILTER BAR ── */
-  .fab-group {
+  /* ── TOP CHIPS + SEARCH ── */
+  .top-bar {
     position:fixed; top:14px; left:14px; right:14px;
-    z-index:100;
-    display:flex; align-items:center; gap:8px;
+    z-index:6;
+    display:flex; gap:8px; align-items:center;
   }
-  .fab-btn {
-    background:#fff; border:none; border-radius:13px;
-    color:var(--text2);
-    font-family:inherit; font-size:13px; font-weight:600;
-    cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:5px;
+  .chip-scroll { flex:1; display:flex; gap:8px; overflow:auto; }
+  .top-chip {
+    display:flex; align-items:center; gap:5px;
+    font-size:13px; font-weight:600; color:var(--text2);
+    background:#fff; padding:11px 15px; border-radius:13px;
+    white-space:nowrap; border:none; cursor:pointer;
     box-shadow:0 4px 12px rgba(0,0,0,.08);
-    transition:all .18s; white-space:nowrap;
+    font-family:inherit;
   }
-  .fab-btn.pill { padding:11px 15px; }
-  .fab-btn.circle {
+  .top-chip.active {
+    color:#fff; background:var(--dark); font-weight:800;
+    box-shadow:0 4px 12px rgba(0,0,0,.14);
+  }
+  .search-sq {
     width:46px; height:46px; flex:0 0 46px; border-radius:14px;
-    font-size:16px; padding:0; margin-left:auto;
+    background:#fff; border:none; cursor:pointer;
     box-shadow:0 4px 14px rgba(0,0,0,.12);
-  }
-  .fab-btn:hover { color:var(--text); }
-  .fab-btn.on-gold, .fab-btn.on-green {
-    background:var(--dark); color:#fff; font-weight:800;
-    box-shadow:0 4px 12px rgba(0,0,0,.16);
+    display:flex; align-items:center; justify-content:center;
   }
 
-  /* ── SUBTLE LATEST NOTICE ── */
-  .app-header {
-    position:fixed; top:68px; left:0; right:0;
-    z-index:99;
-    display:flex; justify-content:center;
-    pointer-events:none; padding:0;
+  /* ── LATEST NOTICE ── */
+  .notice-wrap {
+    position:fixed; top:72px; left:0; right:0; z-index:5;
+    display:flex; justify-content:center; pointer-events:none;
   }
-  .logo-pill {
+  .notice-pill {
     display:flex; align-items:center; gap:7px;
-    background:rgba(255,255,255,.85);
-    backdrop-filter:blur(6px);
-    border:none; border-radius:16px;
-    padding:6px 12px;
+    background:rgba(255,255,255,.85); backdrop-filter:blur(6px);
+    color:var(--muted3); font-size:12px; font-weight:600;
+    padding:6px 12px; border-radius:16px;
     box-shadow:0 2px 8px rgba(0,0,0,.07);
-    pointer-events:all;
   }
-  .logo-emoji { width:6px; height:6px; border-radius:50%; background:var(--primary); font-size:0; overflow:hidden; }
-  .logo-text { display:none; }
-  .live-badge {
-    background:none; color:var(--muted);
-    font-size:12px; font-weight:600; padding:0;
-  }
+  .notice-pill i { width:6px; height:6px; border-radius:50%; background:var(--primary); font-style:normal; }
 
-  /* ── LOCATE BUTTON (attached to sheet) ── */
+  /* ── LOCATE (sheet 높이 따라 이동) ── */
   .locate-btn {
-    position:absolute; top:-62px; right:14px;
+    position:fixed; right:16px; z-index:7;
     width:48px; height:48px;
     border:none; border-radius:15px; background:#fff;
     box-shadow:0 6px 18px rgba(0,0,0,.16);
     display:flex; align-items:center; justify-content:center;
-    color:var(--primary); cursor:pointer;
+    cursor:pointer;
+    bottom:calc(31% + 14px);
+    transition:bottom .34s cubic-bezier(.4,0,.2,1);
   }
+  body.sheet-open .locate-btn { bottom:calc(74% + 14px); }
   .locate-btn:active { transform:scale(.95); }
 
-  /* ── SEARCH OVERLAY ── */
-  .search-overlay {
-    position:fixed; inset:0;
-    background:rgba(22,24,26,0.28);
-    backdrop-filter:blur(5px);
-    z-index:200;
-    display:none;
-    align-items:flex-start; justify-content:center;
-    padding-top:76px;
-  }
-  .search-overlay.open { display:flex; }
-  .search-box {
-    background:#fff;
-    border:none; border-radius:20px; padding:20px;
-    width:calc(100% - 32px); max-width:460px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.18);
-    animation:popIn .18s ease;
-  }
-  @keyframes popIn {
-    from{opacity:0;transform:translateY(-14px) scale(.97)}
-    to{opacity:1;transform:translateY(0) scale(1)}
-  }
-  .search-label { font-size:13px; color:var(--text); font-weight:800; margin-bottom:12px; }
-  .search-row { position:relative; }
-  .search-input {
-    width:100%; background:#fff;
-    border:2px solid var(--primary); border-radius:14px;
-    padding:12px 48px 12px 16px;
-    color:var(--text); font-family:inherit; font-size:15px; font-weight:600;
-    outline:none;
-  }
-  .search-input::placeholder { color:var(--muted); font-weight:500; }
-  .search-go {
-    position:absolute; right:8px; top:50%; transform:translateY(-50%);
-    background:var(--primary);
-    border:none; border-radius:9px;
-    width:32px; height:32px;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; font-size:15px; color:#fff; font-weight:700;
-  }
-  .search-close-btn {
-    margin-top:10px; width:100%;
-    background:none; border:1px solid var(--divider); border-radius:12px;
-    padding:11px; color:var(--muted);
-    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s;
-  }
-  .search-close-btn:hover { background:var(--surface); color:var(--text); }
-  .search-clear-btn {
-    width:100%; background:var(--surface);
-    border:none; border-radius:12px;
-    padding:10px; color:var(--text2);
-    font-family:inherit; font-size:13px; font-weight:600;
-    cursor:pointer; transition:all .15s;
-  }
-  .search-clear-btn:hover { background:var(--divider); }
+  /* ── SHEET BACKDROP (펼침 시 지도 탭으로 접기) ── */
+  .sheet-backdrop { position:fixed; inset:0; z-index:7; display:none; }
+  body.sheet-open .sheet-backdrop { display:block; }
 
-  /* ── STORE DETAIL — bottom sheet over map ── */
-  .store-popup {
-    position:fixed; left:0; right:0; bottom:0 !important; top:auto;
-    z-index:120;
-    background:var(--bg);
-    border:none;
-    border-radius:26px 26px 0 0;
-    padding:0 20px 24px;
+  /* ── BOTTOM SHEET ── */
+  .bottom-sheet {
+    position:fixed; left:0; right:0; bottom:0; z-index:8;
+    background:#fff; border-radius:26px 26px 0 0;
+    box-shadow:0 -10px 34px rgba(0,0,0,.12);
+    display:flex; flex-direction:column;
+    height:31%;
+    transition:height .34s cubic-bezier(.4,0,.2,1);
+    overflow:visible;
+  }
+  body.sheet-open .bottom-sheet { height:74%; }
+  .sheet-grip { display:flex; justify-content:center; padding:12px 0 4px; cursor:pointer; flex-shrink:0; }
+  .sheet-grip div { width:44px; height:5px; border-radius:9px; background:#D8DBD3; }
+
+  .sheet-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 20px 12px; flex-shrink:0;
+  }
+  .sheet-title { font-size:19px; font-weight:800; }
+  .sheet-title .cnt { color:var(--muted2); font-weight:600; font-size:15px; }
+
+  /* 커스텀 정렬 드롭다운 */
+  .sort-wrap { position:relative; z-index:30; }
+  .sort-btn {
+    display:flex; align-items:center; gap:5px;
+    font-size:14px; font-weight:600; color:var(--text2);
+    background:var(--surface); border:none; font-family:inherit;
+    padding:8px 12px; border-radius:10px; cursor:pointer;
+  }
+  .sort-menu {
+    position:absolute; top:calc(100% + 6px); right:0;
+    background:#fff; border-radius:14px;
+    box-shadow:0 12px 32px rgba(0,0,0,.16);
+    border:1px solid var(--divider);
+    overflow:hidden; min-width:148px; display:none;
+  }
+  .sort-menu.open { display:block; }
+  .sort-item {
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    padding:12px 16px; font-size:14px; font-weight:600;
+    color:var(--text2); cursor:pointer; background:#fff;
+  }
+  .sort-item.active { font-weight:800; color:var(--primary2); background:#F4FBF7; }
+  .sort-item .ck { color:var(--primary); font-weight:800; display:none; }
+  .sort-item.active .ck { display:inline; }
+
+  /* 접힘: 가로 카드 스크롤 */
+  .card-scroll {
+    display:flex; gap:12px; overflow-x:auto; overflow-y:hidden;
+    padding:0 16px 16px; flex:1; align-items:flex-start;
+  }
+  body.sheet-open .card-scroll { display:none; }
+  .h-card {
+    flex:0 0 236px; background:#fff;
+    border:1px solid var(--card-border); border-radius:18px;
+    padding:15px; cursor:pointer;
+  }
+  .h-card.sel {
+    background:#F4FBF7; border:1.5px solid var(--primary);
+    box-shadow:0 6px 18px rgba(18,185,129,.12);
+  }
+  .h-card .hd { display:flex; align-items:center; justify-content:space-between; }
+  .h-card .rank-chip {
+    font-size:12px; font-weight:800; color:var(--muted);
+    background:#EFF1EB; padding:3px 8px; border-radius:7px;
+  }
+  .h-card .rank-chip.gold {
+    display:inline-flex; align-items:center; gap:3px;
+    color:var(--primary2); background:#DBF3E8; padding:4px 9px; border-radius:8px;
+  }
+  .h-card .dist { font-size:12px; color:var(--muted); }
+  .h-card .nm { font-size:18px; font-weight:800; margin:11px 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .h-card .rg { font-size:13px; color:var(--muted3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .h-card .wl { display:flex; align-items:baseline; gap:6px; margin-top:12px; }
+  .h-card .wl b { font-size:26px; font-weight:800; color:var(--primary2); line-height:1; }
+  .h-card .wl span { font-size:13px; color:var(--muted3); }
+
+  /* 펼침: 세로 리스트 */
+  .row-list { flex:1; overflow-y:auto; overscroll-behavior:contain; padding:0 14px 20px; display:none; }
+  body.sheet-open .row-list { display:block; }
+  .s-row {
+    display:flex; align-items:center; gap:14px;
+    padding:14px 10px; cursor:pointer; border-radius:16px;
+  }
+  .s-row.sel { background:#F4FBF7; }
+  .s-row .rk {
+    width:38px; height:38px; flex:0 0 38px; border-radius:12px;
+    background:#EBEEE8; color:var(--muted3);
+    font-weight:800; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .s-row.sel .rk { background:var(--primary); color:#fff; }
+  .s-row .inf { flex:1; min-width:0; }
+  .s-row .nm { font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .s-row .sub { font-size:13px; color:var(--muted3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .s-row .rt { text-align:right; flex-shrink:0; }
+  .s-row .rt b { font-size:16px; font-weight:800; color:var(--primary2); }
+  .s-row .rt div { font-size:11px; color:var(--muted2); }
+
+  .empty-box { padding:32px 18px; text-align:center; color:var(--muted); }
+
+  /* ── DETAIL SHEET ── */
+  .detail-backdrop {
+    position:fixed; inset:0; z-index:40;
+    background:rgba(0,0,0,.18); display:none;
+    animation:fadeIn .25s ease;
+  }
+  .detail-sheet {
+    position:fixed; left:0; right:0; bottom:0; height:72%; z-index:41;
+    background:var(--bg); border-radius:26px 26px 0 0;
     box-shadow:0 -14px 40px rgba(0,0,0,.2);
-    display:none;
-    max-width:none; margin:0;
+    display:none; flex-direction:column; overflow:hidden;
     animation:sheetUp .32s cubic-bezier(.4,0,.2,1);
   }
-  @keyframes sheetUp {
-    from{transform:translateY(100%)}
-    to{transform:translateY(0)}
-  }
-  .store-popup.visible { display:block; }
-  .popup-close {
-    position:absolute; top:14px; right:16px;
-    width:32px; height:32px; border-radius:50%;
-    background:var(--surface); border:none;
-    color:var(--muted); font-size:14px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .popup-grip { display:flex; justify-content:center; padding:12px 0 14px; }
-  .popup-grip div { width:44px; height:5px; border-radius:9px; background:#D8DBD3; }
-  .popup-badge {
+  .detail-backdrop.open { display:block; }
+  .detail-sheet.open { display:flex; }
+  .detail-body { flex:1; overflow-y:auto; padding:10px 20px 20px; }
+  .d-badge {
     display:inline-flex; align-items:center; gap:4px;
     font-size:12px; font-weight:800; color:var(--primary2);
-    background:var(--primary-lt);
-    padding:5px 11px; border-radius:8px; margin-bottom:10px;
+    background:var(--primary-lt); padding:5px 11px; border-radius:8px;
   }
-  .popup-name { font-size:23px; font-weight:800; color:var(--text); }
-  .popup-addr { font-size:14px; color:var(--muted); margin-top:4px; }
-  .popup-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:16px 0; }
-  .ps { background:#fff; border-radius:16px; padding:14px; text-align:center; }
-  .ps-v { font-size:22px; font-weight:800; color:var(--primary2); }
-  .ps-v.sm { font-size:22px; color:var(--text); }
-  .ps-l { font-size:12px; color:var(--muted); margin-top:2px; }
+  .d-name { font-size:25px; font-weight:800; margin:8px 0 0; }
+  .d-sub  { font-size:14px; color:var(--muted3); margin-top:4px; }
+  .d-stats { display:flex; gap:10px; margin-top:18px; }
+  .d-stat { flex:1; background:#fff; border-radius:16px; padding:14px; text-align:center; }
+  .d-stat b { font-size:22px; font-weight:800; }
+  .d-stat b.grn { color:var(--primary2); }
+  .d-stat div { font-size:12px; color:var(--muted3); margin-top:2px; }
+  .d-sec { font-size:15px; font-weight:800; margin:24px 0 10px; }
+  .d-hist { background:#fff; border-radius:16px; overflow:hidden; }
+  .d-hrow { display:flex; align-items:center; gap:12px; padding:14px 16px; }
+  .d-hrow + .d-hrow { border-top:1px solid var(--divider); }
+  .d-hrow .tag {
+    font-size:13px; font-weight:700; color:var(--primary2);
+    background:var(--primary-lt); padding:4px 8px; border-radius:7px;
+  }
+  .d-hrow .rd { flex:1; font-size:14px; font-weight:600; }
+  .d-hrow .dt { font-size:13px; color:var(--muted2); }
+  .d-cta { padding:14px 20px 30px; background:linear-gradient(transparent,var(--bg) 30%); }
   .naver-btn {
     display:flex; align-items:center; justify-content:center; gap:9px;
     width:100%; height:54px; border-radius:16px;
@@ -211,161 +256,113 @@
     display:flex; align-items:center; justify-content:center;
   }
 
-  /* ── BOTTOM SHEET ── */
-  .bottom-sheet {
-    position:fixed; left:0; right:0; bottom:0;
-    z-index:100;
-    display:flex; flex-direction:column;
-    transition:transform .32s cubic-bezier(0.32,0.72,0,1);
-    max-height:72vh;
+  /* ── SEARCH SCREEN (full) ── */
+  .search-screen {
+    position:fixed; inset:0; z-index:50;
+    background:var(--bg);
+    display:none; flex-direction:column;
+    animation:screenIn .25s ease;
   }
-  .sheet-handle-area {
-    display:flex; justify-content:center;
-    padding:0; cursor:grab; user-select:none;
-    background:#fff; border-radius:26px 26px 0 0;
-    box-shadow:0 -10px 34px rgba(0,0,0,.12);
-  }
-  .sheet-handle {
-    width:44px; height:5px; margin:12px 0 6px;
-    background:#D8DBD3; border-radius:9px;
-  }
-  .sheet-inner {
-    background:#fff;
-    border:none; border-radius:0;
-    display:flex; flex-direction:column;
-    overflow:hidden;
-    flex:1;
-  }
-  .sheet-header {
-    padding:2px 20px 14px;
-    display:flex; align-items:center; justify-content:space-between;
-    border-bottom:none; flex-shrink:0;
-  }
-  .sheet-title { font-size:19px; font-weight:800; color:var(--text); display:flex; align-items:center; gap:6px; }
-  .sheet-count { font-size:15px; color:var(--muted); font-weight:600; }
-  .sort-sel {
-    appearance:none; -webkit-appearance:none;
-    background:var(--surface) url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%233B4038' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
-    border:none; border-radius:10px; color:var(--text2);
-    font-family:inherit; font-size:13px; font-weight:600;
-    padding:8px 28px 8px 12px;
-    cursor:pointer; outline:none;
-  }
-
-  /* Store List */
-  .store-list { overflow-y:auto; overscroll-behavior:contain; flex:1; padding:0 12px 8px; }
-  .store-list::-webkit-scrollbar { display:none; }
-
-  .store-card {
-    padding:13px 10px;
-    border-bottom:none; border-radius:16px;
-    cursor:pointer; transition:background .15s;
-    display:flex; align-items:center; gap:14px;
-    position:relative;
-    background:transparent;
-  }
-  .store-card::before { display:none; }
-  .store-card:hover { background:var(--surface); }
-  .store-card.active { background:#F4FBF7; }
-  .store-card.hidden { display:none; }
-  .store-card.reveal { animation:slideDown .2s ease forwards; }
-  @keyframes slideDown {
-    from{opacity:0;transform:translateY(-7px)}
-    to{opacity:1;transform:translateY(0)}
-  }
-
-  .s-rank {
-    width:38px; height:38px; flex:0 0 38px; min-width:0;
-    border-radius:12px; background:#EBEEE8;
-    color:var(--muted); font-weight:800; font-size:16px;
+  .search-screen.open { display:flex; }
+  .ss-head { padding:18px 16px 8px; display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .ss-back {
+    width:40px; height:40px; border-radius:13px; background:#fff; border:none;
     display:flex; align-items:center; justify-content:center;
-    padding:0;
+    box-shadow:0 3px 10px rgba(0,0,0,.06); cursor:pointer;
   }
-  .s-rank.top { background:#EBEEE8; color:var(--text2); }
-  .store-card.active .s-rank { background:var(--primary); color:#fff; }
-  .s-info { flex:1; min-width:0; }
-  .s-name {
-    font-size:16px; font-weight:700; color:var(--text); margin-bottom:2px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  .ss-title { font-size:19px; font-weight:800; }
+  .ss-body { flex:1; overflow-y:auto; padding:14px 16px 20px; }
+  .ss-input-wrap {
+    display:flex; align-items:center; gap:10px;
+    background:#fff; border-radius:14px; padding:3px 15px;
+    box-shadow:0 3px 10px rgba(0,0,0,.05);
   }
-  .s-addr { font-size:13px; color:var(--muted); margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .s-badges { display:flex; gap:4px; flex-wrap:wrap; }
-  .badge { font-size:11px; padding:3px 8px; border-radius:7px; font-weight:700; }
-  .b-rec { background:var(--primary-lt); color:var(--primary2); }
-  .b-win { background:var(--surface); color:var(--text2); }
-  .s-meta { margin-top:6px; display:flex; gap:10px; font-size:11px; color:var(--muted); flex-wrap:wrap; }
-  .s-right { text-align:right; flex-shrink:0; }
-  .s-wins { font-size:16px; font-weight:800; color:var(--primary2); line-height:1.2; }
-  .s-lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+  .ss-input {
+    flex:1; border:none; outline:none; background:none;
+    font-size:15px; font-family:inherit; color:var(--text);
+    padding:10px 0; font-weight:600;
+  }
+  .ss-input::placeholder { color:var(--muted2); font-weight:500; }
+  .ss-sec { font-size:14px; font-weight:800; margin:22px 0 10px; }
+  .ss-chips { display:flex; flex-wrap:wrap; gap:9px; }
+  .ss-chip {
+    font-size:14px; font-weight:600; color:var(--text2);
+    background:#fff; padding:11px 16px; border-radius:12px;
+    border:1px solid var(--card-border); cursor:pointer; font-family:inherit;
+  }
+  .ss-chip.on { font-weight:800; color:#fff; background:var(--dark); border-color:var(--dark); }
+  .ss-cta-wrap { padding:14px 16px 26px; background:linear-gradient(transparent,var(--bg) 26%); flex-shrink:0; }
+  .ss-cta {
+    width:100%; height:54px; border-radius:16px; border:none;
+    background:var(--primary); color:#fff;
+    font-size:16px; font-weight:800; font-family:inherit; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px rgba(18,185,129,.4);
+  }
+  .ss-cta:active { transform:scale(.98); }
 
-  /* Load more */
-  .lm-wrap { padding:10px 18px 16px; flex-shrink:0; border-top:1px solid var(--divider); }
-  .lm-btn {
-    width:100%;
-    background:var(--surface); border:none;
-    border-radius:12px; padding:12px;
-    color:var(--text2); font-family:inherit; font-size:14px; font-weight:700;
-    cursor:pointer; transition:all .18s;
-    display:flex; align-items:center; justify-content:center; gap:5px;
+  /* ── TOAST ── */
+  .toast {
+    position:fixed; bottom:calc(31% + 76px); left:50%; transform:translateX(-50%);
+    z-index:80; background:var(--dark); color:#fff;
+    font-size:13px; font-weight:600; padding:11px 18px; border-radius:22px;
+    box-shadow:0 8px 24px rgba(0,0,0,.28); white-space:nowrap;
+    animation:toastIn .25s ease; display:none;
   }
-  .lm-btn:hover { background:var(--primary-lt); color:var(--primary2); }
+  .toast.show { display:block; }
 
-  /* Cluster marker */
+  /* ── MAP MARKERS ── */
+  .nv-lead {
+    width:150px; position:relative;
+    display:flex; flex-direction:column; align-items:center;
+    padding-top:16px;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.22));
+  }
+  .nv-lead .chip {
+    position:absolute; top:0; left:20px; z-index:2;
+    background:var(--dark); color:#fff;
+    font-size:12px; font-weight:700;
+    padding:5px 9px; border-radius:9px; line-height:1.1;
+  }
+  .nv-lead .bubble {
+    background:#fff; border:1px solid var(--primary);
+    border-radius:15px; padding:8px 13px;
+    font-size:14px; font-weight:700; color:var(--text);
+    white-space:nowrap; max-width:146px; overflow:hidden; text-overflow:ellipsis;
+    box-shadow:0 4px 12px rgba(0,0,0,.16);
+  }
+  .nv-lead .tail {
+    width:0; height:0;
+    border-left:7px solid transparent; border-right:7px solid transparent;
+    border-top:9px solid var(--primary); margin-top:-1px;
+  }
+  .nv-dot {
+    width:34px; height:34px; border-radius:50%;
+    background:#fff; border:2.5px solid #C5CBC2;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:13px; color:var(--muted2);
+    box-shadow:0 4px 8px rgba(0,0,0,.15);
+  }
+  .nv-dot.top { border-color:var(--primary); color:var(--primary2); }
   .nv-cluster {
     display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    background:var(--primary);
-    border:3px solid #fff;
-    border-radius:50%;
-    box-shadow:0 4px 14px rgba(18,185,129,0.45);
-    cursor:pointer;
-    font-family:inherit;
-    color:#fff;
+    background:var(--primary); border:3px solid #fff; border-radius:50%;
+    box-shadow:0 4px 14px rgba(18,185,129,.45);
+    cursor:pointer; color:#fff;
   }
-  .nv-cluster-count { font-weight:800; font-size:16px; color:#fff; line-height:1; }
-  .nv-cluster-label { font-size:9px; color:rgba(255,255,255,0.85); margin-top:1px; }
-
-  /* Store marker: dark wins chip + white name pill */
-  .nv-marker {
-    width:120px; position:relative;
-    display:flex; flex-direction:column; align-items:center;
-    padding-top:13px;
-  }
-  .nv-wins {
-    position:absolute; top:0; left:12px; z-index:2;
-    background:var(--dark); color:#fff;
-    font-size:11px; font-weight:800;
-    padding:3px 8px; border-radius:8px;
-    font-family:inherit; line-height:1.3;
-  }
-  .nv-bubble {
-    background:#fff; border:2px solid var(--primary);
-    border-radius:14px; padding:7px 12px;
-    display:flex; align-items:center;
-    white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,0.18);
-    font-family:inherit;
-  }
-  .nv-bubble.mid { border-color:var(--primary); }
-  .nv-bubble.low { border-color:#C5CBC2; }
-  .nv-bubble.rec { border-color:var(--primary); }
-  .nv-name { font-size:12px; font-weight:800; color:var(--text); max-width:84px; overflow:hidden; text-overflow:ellipsis; }
-  .nv-tail { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid var(--primary); margin:0 auto; }
-  .nv-tail.mid { border-top-color:var(--primary); }
-  .nv-tail.low { border-top-color:#C5CBC2; }
-  .nv-tail.rec { border-top-color:var(--primary); }
-
-  /* My location dot */
+  .nv-cluster-count { font-weight:800; font-size:16px; line-height:1; }
+  .nv-cluster-label { font-size:9px; color:rgba(255,255,255,.85); margin-top:1px; }
   .my-dot {
     width:18px; height:18px;
     background:var(--primary); border:3px solid #fff; border-radius:50%;
-    box-shadow:0 0 0 6px rgba(18,185,129,0.25);
+    box-shadow:0 0 0 6px rgba(18,185,129,.25);
     animation:loc-p 2s ease-in-out infinite;
   }
   @keyframes loc-p {
-    0%,100%{box-shadow:0 0 0 6px rgba(18,185,129,0.25)}
-    50%{box-shadow:0 0 0 12px rgba(18,185,129,0.08)}
+    0%,100%{box-shadow:0 0 0 6px rgba(18,185,129,.25)}
+    50%{box-shadow:0 0 0 12px rgba(18,185,129,.08)}
   }
-  @keyframes bounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }
 </style>
 </head>
 <body>
@@ -373,114 +370,101 @@
 <!-- Full-screen map -->
 <div id="map"></div>
 
-<!-- Header -->
-<div class="app-header">
-  <div class="logo-pill">
-    <span class="logo-emoji">🍀</span>
-    <span class="logo-text">로또명당</span>
-    <span class="live-badge">최신 1171회 반영</span>
+<!-- 상단 필터 칩 + 검색 -->
+<div class="top-bar">
+  <div class="chip-scroll">
+    <button class="top-chip" id="chipNear" onclick="toggleFilter('near')">📍 내 주변</button>
+    <button class="top-chip" id="chipTop30" onclick="toggleFilter('top30')">🏆 전국 TOP30</button>
   </div>
-</div>
-
-<!-- FAB (top-right) -->
-<div class="fab-group">
-  <button class="fab-btn pill"   id="fabNear"  onclick="toggleFilter('near')">📍 내 주변</button>
-  <button class="fab-btn pill"   id="fabTop30" onclick="toggleFilter('top30')">🏆 전국 TOP30</button>
-  <button class="fab-btn circle" id="fabSearch" onclick="openSearch()" title="검색"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7.5" stroke="#16181A" stroke-width="2"/><path d="M17 17l4 4" stroke="#16181A" stroke-width="2" stroke-linecap="round"/></svg></button>
-</div>
-
-<!-- Search Overlay -->
-<div class="search-overlay" id="searchOverlay" onclick="bgClose(event)">
-  <div class="search-box">
-    <div class="search-label">🔍 지점명 · 지역 검색</div>
-    <div class="search-row">
-      <input class="search-input" id="searchInput" type="text"
-        placeholder="예) 강남, 행운복권방…"
-        oninput="onSearchInput()"
-        onkeydown="if(event.key==='Enter')doSearch()">
-      <button class="search-go" onclick="doSearch()">↵</button>
-    </div>
-    <div id="searchActiveWrap" style="display:none;margin-top:8px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
-        현재 검색어: <span id="searchActiveTxt" style="color:var(--primary);font-weight:700"></span>
-      </div>
-      <button class="search-clear-btn" onclick="clearSearch()">✕ 검색 초기화</button>
-    </div>
-    <button class="search-close-btn" onclick="closeSearch()">닫기</button>
-  </div>
-</div>
-
-<!-- Store Detail Popup -->
-<div class="store-popup" id="storePopup">
-  <button class="popup-close" onclick="closePopup()">✕</button>
-  <div id="popupContent"></div>
-</div>
-
-<!-- Bottom Sheet -->
-<div class="bottom-sheet" id="bottomSheet">
-  <button class="locate-btn" onclick="activateNear(true)" title="현재 위치">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><path d="M12 1.5v3.5M12 19v3.5M1.5 12H5M19 12h3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  <button class="search-sq" onclick="openSearch()" title="검색">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7.5" stroke="#16181A" stroke-width="2"/><path d="M17 17l4 4" stroke="#16181A" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
-  <div class="sheet-handle-area" id="sheetHandle">
-    <div class="sheet-handle"></div>
-  </div>
-  <div class="sheet-inner">
-    <div class="sheet-header">
-      <div class="sheet-title">
-        명당 지점
-        <span class="sheet-count" id="sheetCount"></span>
+</div>
+
+<!-- 최신 회차 알림 -->
+<div class="notice-wrap">
+  <div class="notice-pill"><i></i><span id="noticeTxt">최신 회차 불러오는 중…</span></div>
+</div>
+
+<!-- 현재 위치 버튼 -->
+<button class="locate-btn" onclick="onLocate()" title="현재 위치">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6" stroke="#12B981" stroke-width="2"/><circle cx="12" cy="12" r="1.7" fill="#12B981"/><path d="M12 1.5v3.5M12 19v3.5M1.5 12H5M19 12h3.5" stroke="#12B981" stroke-width="2" stroke-linecap="round"/></svg>
+</button>
+
+<!-- 펼침 상태에서 지도 영역 탭 → 접기 -->
+<div class="sheet-backdrop" onclick="setSheet(false)"></div>
+
+<!-- 바텀시트 -->
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-grip" onclick="toggleSheet()"><div></div></div>
+  <div class="sheet-header">
+    <div class="sheet-title"><span id="sheetTitle">내 주변 명당</span> <span class="cnt" id="sheetCount"></span></div>
+    <div class="sort-wrap">
+      <button class="sort-btn" onclick="toggleSortMenu(event)">
+        <span id="sortLabel">당첨많은순</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="#3B4038" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sort-menu" id="sortMenu">
+        <div class="sort-item" data-sort="wins"   onclick="pickSort('wins')"><span>당첨많은순</span><span class="ck">✓</span></div>
+        <div class="sort-item" data-sort="recent" onclick="pickSort('recent')"><span>최근순</span><span class="ck">✓</span></div>
+        <div class="sort-item" data-sort="dist"   onclick="pickSort('dist')"><span>거리순</span><span class="ck">✓</span></div>
       </div>
-      <select class="sort-sel" onchange="sortStores(this.value)" id="sortSel">
-        <option value="wins">당첨 횟수순</option>
-        <option value="recent">최근 당첨순</option>
-        <option value="dist">거리순 (내 주변)</option>
-      </select>
     </div>
-    <!-- 검색 상태 바 (검색 중일 때만 표시) -->
-    <div id="searchStatusBar" style="display:none;padding:8px 18px;border-bottom:1px solid var(--divider);align-items:center;justify-content:space-between;gap:8px;background:var(--primary-lt)">
-      <span style="font-size:12px;color:var(--text2)">
-        🔍 <span id="searchStatusTxt" style="color:var(--primary);font-weight:700"></span> 검색 결과
-      </span>
-      <button onclick="clearSearch()" style="background:var(--primary);border:none;border-radius:20px;padding:4px 12px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap">
-        ✕ 초기화
-      </button>
+  </div>
+  <div class="card-scroll" id="cardScroll"></div>
+  <div class="row-list" id="rowList"></div>
+</div>
+
+<!-- 상세 시트 -->
+<div class="detail-backdrop" id="detailBackdrop" onclick="closeDetail()"></div>
+<div class="detail-sheet" id="detailSheet">
+  <div class="sheet-grip" onclick="closeDetail()"><div></div></div>
+  <div class="detail-body" id="detailBody"></div>
+  <div class="d-cta" id="detailCta"></div>
+</div>
+
+<!-- 전체화면 검색 -->
+<div class="search-screen" id="searchScreen">
+  <div class="ss-head">
+    <button class="ss-back" onclick="closeSearch()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#16181A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="ss-title">지역·지점 검색</div>
+  </div>
+  <div class="ss-body">
+    <div class="ss-input-wrap">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7.5" stroke="#9AA096" stroke-width="2"/><path d="M17 17l4 4" stroke="#9AA096" stroke-width="2" stroke-linecap="round"/></svg>
+      <input class="ss-input" id="ssInput" type="text" placeholder="지점명 직접 검색 (예: 행운복권방)"
+        oninput="updateCTA()" onkeydown="if(event.key==='Enter')applySearch()">
     </div>
-    <div class="store-list" id="storeList"></div>
-    <div class="lm-wrap" id="lmWrap" style="display:none">
-      <button class="lm-btn" onclick="toggleMore()">
-        <span id="lmIcon">▾</span>
-        <span id="lmText">+ 더보기</span>
-      </button>
-    </div>
+    <div class="ss-sec">지역</div>
+    <div class="ss-chips" id="regionChips"></div>
+    <div class="ss-sec" id="districtSecTitle" style="display:none"></div>
+    <div class="ss-chips" id="districtChips"></div>
+  </div>
+  <div class="ss-cta-wrap">
+    <button class="ss-cta" id="ssCta" onclick="applySearch()">명당 보기</button>
   </div>
 </div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
 
 <script>
 // ── 런타임 store 목록 ──────────────────────────────────
 let stores = [];
 
-// ── 좌표 보정 테이블은 coords.js 에서 로드됩니다 ────────────
-
-
 // ── JSON 로드 & stores 변환 ──────────────────────────────────
-// lotto_stores.json 을 fetch()로 비동기 로드합니다.
-// 로컬 실행 시: python -m http.server 8080 → localhost:8080 으로 접속
-// 외부 배포 시: 웹서버에 파일 올리면 바로 동작 (inject_data.py 불필요)
-
 async function loadStoresFromJSON() {
-  setLoadingState(true, "데이터 로딩 중…");
-
   try {
-    const res = await fetch("./lotto_stores.json?v=" + Date.now(), {
-      cache: "no-cache"
-    });
+    const res = await fetch("./lotto_stores.json?v=" + Date.now(), { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
     const meta = data.meta || {};
     const liveRound = meta.latestRound || 0;
-    const badge = document.querySelector(".live-badge");
-    if (badge && liveRound) badge.textContent = `최신 ${liveRound}회 반영`;
+    const notice = document.getElementById("noticeTxt");
+    if (notice && liveRound) notice.textContent = `최신 ${liveRound}회 반영`;
 
     const rawStores = Object.values(data.stores || {});
     if (rawStores.length === 0) throw new Error("판매점 데이터 비어있음");
@@ -496,7 +480,6 @@ async function loadStoresFromJSON() {
           addr:      s.addr,
           region:    guessRegion(s.addr),
           wins:      s.wins,
-          prize:     s.prize || Math.round(s.wins * 29.5),
           recent:    recentRound ? `${recentRound}회` : "-",
           recentNum: recentRound,
           type:      s.type || "자동",
@@ -504,27 +487,17 @@ async function loadStoresFromJSON() {
           lat:       coord.lat,
           lng:       coord.lng,
           rec:       s.wins >= 10,
+          winRank:   i + 1, // wins 내림차순 정렬 기준 전국 순위
         };
       });
-
-    setLoadingState(false);
     return true;
-
   } catch (err) {
     console.warn("데이터 로드 실패:", err.message);
-
-    // file:// 프로토콜 감지
     const isFileProtocol = location.protocol === "file:";
-
-    setLoadingState(false,
+    showListMessage(
       isFileProtocol
-        ? `⚠ 로컬 파일로 직접 열면 데이터를 불러올 수 없습니다.<br><br>
-           터미널에서 아래 명령어를 실행한 뒤<br>
-           <b>http://localhost:8080</b> 으로 접속하세요:<br><br>
-           <code style="background:rgba(44,140,94,0.1);padding:4px 10px;border-radius:6px;
-                        color:var(--primary);font-size:12px">python -m http.server 8080</code>`
-        : `⚠ lotto_stores.json 파일을 찾을 수 없습니다.<br>
-           crawl_all.py 를 먼저 실행하세요.`
+        ? '⚠ 로컬 파일로 직접 열면 데이터를 불러올 수 없습니다.<br>python serve.py 실행 후 localhost:8080 으로 접속하세요.'
+        : '⚠ lotto_stores.json 파일을 찾을 수 없습니다.'
     );
     return false;
   }
@@ -538,49 +511,29 @@ function guessRegion(addr) {
   return m2 ? m2[1] : addr.slice(0, 6);
 }
 
-// JSON 없을 때 최소 폴백 (앱이 완전 빈 화면이 되지 않도록)
-function useFallbackData() {
-  stores = [
-    {id:1, name:"데이터 없음 (crawl_all.py 실행 필요)", addr:"crawl_all.py 를 실행하여 lotto_stores.json 을 생성하세요",
-     region:"", wins:0, prize:0, recent:"-", recentNum:0, rounds:[], lat:37.5665, lng:126.9780, rec:false, type:"자동"},
-  ];
-}
-
-// ── 로딩 UI ───────────────────────────────────────────────────
-function setLoadingState(isLoading, msg = "") {
-  const count = document.getElementById("sheetCount");
-  const list  = document.getElementById("storeList");
-  if (isLoading) {
-    if (count) count.textContent = "로딩 중…";
-    if (list)  list.innerHTML = `
-      <div style="padding:36px;text-align:center;color:var(--muted)">
-        <div style="font-size:32px;margin-bottom:12px;animation:bounce 1s ease-in-out infinite">🍀</div>
-        <div style="font-size:13px">${msg || "당첨 데이터 불러오는 중…"}</div>
-      </div>`;
-  } else if (msg) {
-    if (count) count.textContent = "오류";
-    if (list)  list.innerHTML = `
-      <div style="padding:24px 18px;font-size:12px;color:var(--muted);line-height:1.8">
-        ${msg.replace(/\n/g,"<br>")}
-      </div>`;
-  }
+// 회차 → 추첨일 (1회 = 2002.12.07, 매주 토요일)
+function roundDate(n) {
+  const d = new Date(2002, 11, 7);
+  d.setDate(d.getDate() + (n - 1) * 7);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // ── STATE ─────────────────────────────────────────────
 const FALLBACK_CENTER = { lat: 37.5665, lng: 126.9780 }; // 서울시청 (위치 거부 시 기준점)
-const NEAR_RADIUS_KM = 1; // '내 주변' 필터 반경
+const NEAR_RADIUS_KM = 1;   // '내 주변' 필터 반경
+const ROW_CHUNK = 50;       // 펼침 리스트 증분 렌더 단위
 let map = null;
 let markers = [];
 let myMarker = null;
 let userPos = null;
-let activeFilter = null;
+let activeFilter = null;          // 'near' | 'top30' | 'region' | null
+let regionFilter = { region:'', district:'' };
 let searchQuery = '';
 let currentSort = 'wins';
 let filtered = [];
-let renderedCount = 0;
-const INITIAL_COUNT = 1;
-const LOAD_MORE_COUNT = 10;
-let sheetH = 0;
+let selectedId = null;
+let rowRendered = 0;
+let sheetExpanded = false;
 
 // ── MAP INIT ──────────────────────────────────────────
 function initMap(lat, lng, zoom) {
@@ -600,17 +553,8 @@ function initMap(lat, lng, zoom) {
   bindMapEvents();
 }
 
-// ── MARKERS & CLUSTERING ──────────────────────────────
-function getCls(s) {
-  if (s.rec) return 'rec';
-  if (s.wins >= 10) return '';
-  if (s.wins >= 5)  return 'mid';
-  return 'low';
-}
-
-// 클러스터 반경 (줌 레벨별 픽셀 기준 실제 km 환산)
+// ── CLUSTERING ────────────────────────────────────────
 function clusterRadiusKm(zoom) {
-  // 줌 낮을수록 큰 반경으로 묶음
   const table = {6:80, 7:50, 8:30, 9:20, 10:12, 11:7, 12:4, 13:2, 14:1, 15:0.5};
   return table[zoom] ?? (zoom >= 16 ? 0 : 100);
 }
@@ -621,7 +565,6 @@ function buildClusters(list, zoom) {
 
   const used = new Array(list.length).fill(false);
   const clusters = [];
-
   for (let i = 0; i < list.length; i++) {
     if (used[i]) continue;
     const group = [list[i]];
@@ -636,19 +579,10 @@ function buildClusters(list, zoom) {
     if (group.length === 1) {
       clusters.push({ type:'single', store:group[0], lat:group[0].lat, lng:group[0].lng });
     } else {
-      // 중심점: 당첨 횟수 가중 평균
-      const totalW = group.reduce((s, x) => s + x.wins, 0);
-      const lat = group.reduce((s, x) => s + x.lat * x.wins, 0) / totalW;
-      const lng = group.reduce((s, x) => s + x.lng * x.wins, 0) / totalW;
-      const topStore = group.reduce((a, b) => a.wins >= b.wins ? a : b);
-      clusters.push({
-        type: 'cluster',
-        stores: group,
-        topStore,
-        count: group.length,
-        totalWins: totalW,
-        lat, lng,
-      });
+      const totalW = group.reduce((s, x) => s + x.wins, 0) || group.length;
+      const lat = group.reduce((s, x) => s + x.lat * (x.wins || 1), 0) / totalW;
+      const lng = group.reduce((s, x) => s + x.lng * (x.wins || 1), 0) / totalW;
+      clusters.push({ type:'cluster', stores:group, count:group.length, lat, lng });
     }
   }
   return clusters;
@@ -660,26 +594,38 @@ function renderMarkers() {
   markers = [];
 
   const zoom = map.getZoom();
-  const clusters = buildClusters(filtered, zoom);
+  // 선택된 지점은 클러스터에 묶이지 않고 항상 단독 표시
+  const selStore = filtered.find(s => s.id === selectedId);
+  const rest = selStore ? filtered.filter(s => s.id !== selectedId) : filtered;
+  const clusters = buildClusters(rest, zoom);
+  if (selStore) clusters.push({ type:'single', store:selStore, lat:selStore.lat, lng:selStore.lng });
+
+  // filtered 순서 = 현재 정렬 순위
+  const rankMap = new Map(filtered.map((s, i) => [s.id, i + 1]));
 
   clusters.forEach(c => {
-    let html, anchor;
+    let html, anchor, zIndex = 5;
 
     if (c.type === 'single') {
-      const s   = c.store;
-      const cls = getCls(s);
-      html = `
-        <div class="nv-marker">
-          <div class="nv-bubble ${cls}">
-            <span class="nv-wins">${s.wins}회</span>
-            <span class="nv-name">${s.name}</span>
-          </div>
-          <div class="nv-tail ${cls}"></div>
-        </div>`;
-      // 꼬리 끝(가로 중앙·세로 맨 아래)이 정확히 좌표를 가리키도록
-      anchor = new naver.maps.Point(60, 50);
+      const s = c.store;
+      const rank = rankMap.get(s.id) || 0;
+      if (s.id === selectedId) {
+        // 선택된 지점: 이름 말풍선 + 당첨횟수 칩
+        html = `
+          <div class="nv-lead">
+            <div class="chip">${s.wins}회</div>
+            <div class="bubble">${s.name}</div>
+            <div class="tail"></div>
+          </div>`;
+        anchor = new naver.maps.Point(75, 62);
+        zIndex = 20;
+      } else {
+        // 그 외: 순위 동그라미 (1~3위 초록)
+        html = `<div class="nv-dot ${rank>0 && rank<=3 ? 'top' : ''}">${rank || '·'}</div>`;
+        anchor = new naver.maps.Point(17, 17);
+        zIndex = rank>0 && rank<=3 ? 8 : 5;
+      }
     } else {
-      // 클러스터 마커: 원형 + 지점 수 + 총 당첨 횟수
       const size = Math.max(44, Math.min(72, 36 + c.count * 2));
       html = `
         <div class="nv-cluster" style="width:${size}px;height:${size}px;">
@@ -687,19 +633,22 @@ function renderMarkers() {
           <span class="nv-cluster-label">지점</span>
         </div>`;
       anchor = new naver.maps.Point(size / 2, size / 2);
+      zIndex = 10;
     }
 
     const m = new naver.maps.Marker({
       position: new naver.maps.LatLng(c.lat, c.lng),
       map,
       icon: { content: html, anchor },
-      zIndex: c.type === 'cluster' ? 10 : 5,
+      zIndex,
     });
 
     if (c.type === 'single') {
-      naver.maps.Event.addListener(m, 'click', () => selectStore(c.store.id));
+      naver.maps.Event.addListener(m, 'click', () => {
+        if (c.store.id === selectedId) openDetail(c.store.id);
+        else selectStore(c.store.id);
+      });
     } else {
-      // 클러스터 클릭: 해당 위치로 줌인
       naver.maps.Event.addListener(m, 'click', () => {
         const nextZoom = Math.min(map.getZoom() + 2, 16);
         map.setCenter(new naver.maps.LatLng(c.lat, c.lng));
@@ -718,18 +667,16 @@ function scheduleRenderMarkers() {
   setTimeout(() => { _rmPending = false; if (map) renderMarkers(); }, 800);
 }
 
-// 지오코딩 배치가 끝날 때마다 호출됨 (isDone: 큐 전체 완료 여부)
 function onGeoUpdate(isDone) {
   applyGeoCache(stores);
   scheduleRenderMarkers();
   if (isDone) refresh(); // 정확한 좌표 기준으로 거리/필터 최종 반영
 }
 
-// 줌/이동 시 클러스터 재계산
 function bindMapEvents() {
   if (!map) return;
   naver.maps.Event.addListener(map, 'zoom_changed', () => renderMarkers());
-  naver.maps.Event.addListener(map, 'click', closePopup);
+  naver.maps.Event.addListener(map, 'click', () => { closeDetail(); closeSortMenu(); });
 }
 
 // ── USER LOCATION ──────────────────────────────────────
@@ -741,11 +688,7 @@ function locateUser(cb) {
       placeMyMarker();
       cb(userPos);
     },
-    () => {
-      // 위치 거부/실패 → userPos 없음 (서울시청 기준으로 동작)
-      userPos = null;
-      cb(null);
-    },
+    () => { userPos = null; cb(null); }, // 거부/실패 → 서울시청 기준
     { timeout: 7000, enableHighAccuracy: true, maximumAge: 60000 }
   );
 }
@@ -760,6 +703,10 @@ function placeMyMarker() {
   });
 }
 
+function onLocate() {
+  activateNear(true);
+}
+
 // ── FILTER & SORT ──────────────────────────────────────
 function dist(a, b, c, d) {
   const R = 6371, dl = (c-a)*Math.PI/180, dL = (d-b)*Math.PI/180;
@@ -767,13 +714,24 @@ function dist(a, b, c, d) {
   return R*2*Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 }
 
-function buildList() {
-  const INTERNET_KW = ["인터넷", "dhlottery", "복권닷컴", "온라인", "동행복권", "www.", "http", ".co.kr", ".com"];
-  const base = stores.filter(s =>
+function distLabel(s) {
+  const ref = userPos || FALLBACK_CENTER;
+  const km = dist(s.lat, s.lng, ref.lat, ref.lng);
+  return km < 1 ? Math.round(km * 1000) + 'm' : km.toFixed(1) + 'km';
+}
+
+const INTERNET_KW = ["인터넷", "dhlottery", "복권닷컴", "온라인", "동행복권", "www.", "http", ".co.kr", ".com"];
+
+function baseStores() {
+  return stores.filter(s =>
     !INTERNET_KW.some(kw => s.name.includes(kw) || s.addr.includes(kw))
   );
+}
 
-  // ── 검색 모드: 기존 필터/정렬 무시, 검색어만 적용 ──
+function buildList() {
+  const base = baseStores();
+
+  // ── 검색 모드: 검색어만 적용 ──
   if (searchQuery) {
     const q = searchQuery.replace(/\s/g, '');
     return base.filter(s => {
@@ -781,71 +739,262 @@ function buildList() {
       const addr   = (s.addr   || '').replace(/\s/g, '');
       const region = (s.region || '').replace(/\s/g, '');
       return name.includes(q) || addr.includes(q) || region.includes(q);
-    });
+    }).sort((a,b) => b.wins - a.wins);
   }
 
-  // ── 일반 모드: 필터 + 정렬 ──
   let list = [...base];
   if (activeFilter === 'top30') {
-    // 당첨횟수순 상위 30개
-    list = [...base].sort((a,b) => b.wins - a.wins).slice(0, 30);
-    return list;
+    return list.sort((a,b) => b.wins - a.wins).slice(0, 30);
   } else if (activeFilter === 'near') {
     const ref = userPos || FALLBACK_CENTER;
     list = list.filter(s => dist(s.lat, s.lng, ref.lat, ref.lng) <= NEAR_RADIUS_KM);
+  } else if (activeFilter === 'region' && regionFilter.region) {
+    list = list.filter(s => {
+      const parts = s.addr.split(/\s+/);
+      if (parts[0] !== regionFilter.region) return false;
+      return !regionFilter.district || parts[1] === regionFilter.district;
+    });
   }
 
-  // 정렬 — near 포함 모든 모드에서 currentSort 적용
-  if (currentSort === 'wins')   list.sort((a,b) => b.wins - a.wins);
-  else if (currentSort === 'recent') list.sort((a,b) => parseInt(b.recent) - parseInt(a.recent));
+  if (currentSort === 'wins')        list.sort((a,b) => b.wins - a.wins);
+  else if (currentSort === 'recent') list.sort((a,b) => b.recentNum - a.recentNum);
   else if (currentSort === 'dist') {
     const ref = userPos || FALLBACK_CENTER;
     list.sort((a,b) => dist(a.lat,a.lng,ref.lat,ref.lng) - dist(b.lat,b.lng,ref.lat,ref.lng));
   }
-
   return list;
 }
 
 function refresh() {
   filtered = buildList();
-  renderedCount = 0;
+  // 선택 지점이 목록에서 사라졌으면 선택 해제
+  if (selectedId && !filtered.some(s => s.id === selectedId)) selectedId = null;
+  if (!selectedId && filtered.length) selectedId = filtered[0].id;
 
-  const bar = document.getElementById('searchStatusBar');
-  const txt = document.getElementById('searchStatusTxt');
-  if (bar) {
-    if (searchQuery) {
-      bar.style.display = 'flex';
-      if (txt) txt.textContent = `"${searchQuery}"`;
-    } else {
-      bar.style.display = 'none';
-    }
-  }
-
-  const fabSearch = document.getElementById('fabSearch');
-  if (fabSearch) fabSearch.classList.toggle('on-gold', !!searchQuery);
-
+  updateChips();
+  renderSheet();
   if (map) renderMarkers();
-  renderList();
 
   // 현재 보이는 지점들을 지오코딩 우선순위 맨 앞으로
   if (map && typeof geocodeStores === 'function') geocodeStores(filtered, onGeoUpdate);
 }
 
-// ── FAB FILTER TOGGLE ─────────────────────────────────
-function resetFabs() {
-  document.getElementById('fabTop30').classList.remove('on-gold');
-  document.getElementById('fabNear').classList.remove('on-green');
-  document.getElementById('fabSearch').classList.remove('on-gold');
+function updateChips() {
+  document.getElementById('chipNear').classList.toggle('active', activeFilter === 'near');
+  document.getElementById('chipTop30').classList.toggle('active', activeFilter === 'top30');
 }
 
-// '내 주변' 모드 활성화 (relocate=true 면 현재 위치 재탐색 후 지도 이동)
+// ── 시트 상태 ─────────────────────────────────────────
+function setSheet(expanded) {
+  sheetExpanded = expanded;
+  document.body.classList.toggle('sheet-open', expanded);
+  closeSortMenu();
+  if (expanded) renderRows(true);
+}
+function toggleSheet() { setSheet(!sheetExpanded); }
+
+// ── 정렬 드롭다운 ─────────────────────────────────────
+const SORT_LABELS = { wins:'당첨많은순', recent:'최근순', dist:'거리순' };
+function toggleSortMenu(e) {
+  e.stopPropagation();
+  document.getElementById('sortMenu').classList.toggle('open');
+}
+function closeSortMenu() {
+  document.getElementById('sortMenu').classList.remove('open');
+}
+function pickSort(v) {
+  currentSort = v;
+  closeSortMenu();
+  refresh();
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.sort-wrap')) closeSortMenu();
+});
+
+// ── 시트 렌더링 ───────────────────────────────────────
+function sheetTitleText() {
+  if (searchQuery) return `"${searchQuery}" 검색 결과`;
+  if (activeFilter === 'top30') return '전국 TOP30';
+  if (activeFilter === 'region')
+    return `${regionFilter.region}${regionFilter.district ? ' ' + regionFilter.district : ''} 명당`;
+  return '내 주변 명당';
+}
+
+function renderSheet() {
+  document.getElementById('sheetTitle').textContent = sheetTitleText();
+  document.getElementById('sheetCount').textContent = filtered.length ? `${filtered.length}곳` : '';
+  document.getElementById('sortLabel').textContent = SORT_LABELS[currentSort] || '정렬';
+  document.querySelectorAll('.sort-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.sort === currentSort));
+  renderCards();
+  renderRows(true);
+}
+
+function emptyBoxHTML() {
+  if (!stores.length || !map) {
+    return `<div class="empty-box" style="width:100%">
+      <div style="font-size:28px;margin-bottom:10px;animation:bounce 1s ease-in-out infinite">🍀</div>
+      <div style="font-size:13px">리스트를 불러오는 중입니다…</div>
+    </div>`;
+  }
+  const msg = searchQuery
+    ? `"${searchQuery}"에 해당하는 지점이 없습니다.`
+    : activeFilter === 'near'
+    ? `내 주변 ${NEAR_RADIUS_KM}km 안에 1등 배출 지점이 없습니다.`
+    : '표시할 지점이 없습니다.';
+  const sub = searchQuery
+    ? '다른 검색어를 입력해 보세요.'
+    : activeFilter === 'near'
+    ? '🏆 전국 TOP30 버튼으로 명당을 찾아보세요.'
+    : '';
+  return `<div class="empty-box" style="width:100%">
+    <div style="font-size:28px;margin-bottom:10px">🔍</div>
+    <div style="font-size:13px">${msg}</div>
+    ${sub ? `<div style="font-size:11px;margin-top:6px;opacity:.6">${sub}</div>` : ''}
+  </div>`;
+}
+
+// 접힘: 가로 카드 (상위 12개)
+function renderCards() {
+  const wrap = document.getElementById('cardScroll');
+  if (!filtered.length) {
+    wrap.innerHTML = emptyBoxHTML();
+    if (!stores.length || !map) document.getElementById('sheetCount').textContent = '';
+    return;
+  }
+  wrap.innerHTML = filtered.slice(0, 12).map((s, i) => {
+    const rank = i + 1, gold = rank === 1;
+    return `
+    <div class="h-card ${s.id===selectedId?'sel':''}" onclick="onCardTap(${s.id})" id="hc-${s.id}">
+      <div class="hd">
+        <span class="rank-chip ${gold?'gold':''}">${gold ? '👑 1위 명당' : rank + '위'}</span>
+        <span class="dist">${distLabel(s)}</span>
+      </div>
+      <div class="nm">${s.name}</div>
+      <div class="rg">${s.region}</div>
+      <div class="wl"><b>${s.wins}</b><span>회 1등 배출</span></div>
+    </div>`;
+  }).join('') + '<div style="flex:0 0 8px"></div>';
+}
+
+// 펼침: 세로 리스트 (증분 렌더 + 무한 스크롤)
+function rowHTML(s, i) {
+  return `
+  <div class="s-row ${s.id===selectedId?'sel':''}" onclick="onRowTap(${s.id})" id="sr-${s.id}">
+    <div class="rk">${i + 1}</div>
+    <div class="inf">
+      <div class="nm">${s.name}</div>
+      <div class="sub">${s.region} · ${distLabel(s)}</div>
+    </div>
+    <div class="rt"><b>${s.wins}회</b><div>1등 배출</div></div>
+  </div>`;
+}
+
+function renderRows(reset) {
+  const wrap = document.getElementById('rowList');
+  if (!filtered.length) { wrap.innerHTML = emptyBoxHTML(); rowRendered = 0; return; }
+  if (reset) {
+    rowRendered = Math.min(ROW_CHUNK, filtered.length);
+    wrap.innerHTML = filtered.slice(0, rowRendered).map((s, i) => rowHTML(s, i)).join('');
+    wrap.scrollTop = 0;
+  }
+}
+
+function appendRows() {
+  if (rowRendered >= filtered.length) return;
+  const wrap = document.getElementById('rowList');
+  const to = Math.min(rowRendered + ROW_CHUNK, filtered.length);
+  const div = document.createElement('div');
+  div.innerHTML = filtered.slice(rowRendered, to).map((s, i) => rowHTML(s, rowRendered + i)).join('');
+  while (div.firstChild) wrap.appendChild(div.firstChild);
+  rowRendered = to;
+}
+
+document.getElementById('rowList').addEventListener('scroll', function () {
+  if (this.scrollTop + this.clientHeight > this.scrollHeight - 300) appendRows();
+});
+
+// ── 지점 선택 / 상세 ───────────────────────────────────
+function onCardTap(id) {
+  if (id === selectedId) { openDetail(id); return; } // 선택된 카드 재탭 → 상세
+  selectStore(id);
+}
+function onRowTap(id) {
+  if (id === selectedId) { openDetail(id); return; }
+  selectStore(id);
+  setSheet(false); // 리스트에서 고르면 지도가 보이게 접기
+}
+
+function selectStore(id) {
+  const s = stores.find(x => x.id === id);
+  if (!s) return;
+  selectedId = id;
+
+  // 하이라이트 갱신
+  document.querySelectorAll('.h-card').forEach(el => el.classList.remove('sel'));
+  document.querySelectorAll('.s-row').forEach(el => el.classList.remove('sel'));
+  const hc = document.getElementById('hc-' + id);
+  const sr = document.getElementById('sr-' + id);
+  if (hc) { hc.classList.add('sel'); hc.scrollIntoView({inline:'nearest', block:'nearest', behavior:'smooth'}); }
+  if (sr) sr.classList.add('sel');
+
+  if (map && typeof naver !== 'undefined') map.panTo(new naver.maps.LatLng(s.lat, s.lng));
+  renderMarkers();
+}
+
+// 네이버 지도 검색어: 정제된 도로명주소 (호수 등 세부주소 제외)
+// 판매점 다수가 네이버 플레이스 미등록 가판점이라 상호 검색은 결과가 없음.
+// 주소 검색은 등록 여부와 무관하게 항상 정확한 위치에 핀 표시됨.
+function buildMapQuery(s) {
+  return cleanAddr(s.addr || '');
+}
+
+function openDetail(id) {
+  const s = stores.find(x => x.id === id);
+  if (!s) return;
+  selectedId = id;
+
+  const gold = s.winRank === 1;
+  const naverMapUrl = `https://map.naver.com/p/search/${encodeURIComponent(buildMapQuery(s))}`;
+  const roundsDesc = [...s.rounds].sort((a, b) => b - a);
+  const histRows = roundsDesc.map(r => `
+    <div class="d-hrow">
+      <span class="tag">1등</span>
+      <span class="rd">${r}회</span>
+      <span class="dt">${roundDate(r)}</span>
+    </div>`).join('');
+
+  document.getElementById('detailBody').innerHTML = `
+    <div class="d-badge">${gold ? '👑 전국 1위 명당' : `전국 ${s.winRank}위 명당`}</div>
+    <h2 class="d-name">${s.name}</h2>
+    <div class="d-sub">${s.addr}</div>
+    <div class="d-stats">
+      <div class="d-stat"><b class="grn">${s.wins}</b><div>1등 배출</div></div>
+      <div class="d-stat"><b>${s.recentNum || '-'}</b><div>최근 회차</div></div>
+      <div class="d-stat"><b class="grn">${s.winRank}위</b><div>전국 순위</div></div>
+    </div>
+    <div class="d-sec">1등 배출 내역</div>
+    <div class="d-hist">${histRows || '<div class="d-hrow"><span class="dt">내역 없음</span></div>'}</div>`;
+
+  document.getElementById('detailCta').innerHTML = `
+    <a class="naver-btn" href="${naverMapUrl}" target="_blank" rel="noopener noreferrer">
+      <span class="naver-n">N</span> 네이버지도로 이동
+    </a>`;
+
+  document.getElementById('detailBackdrop').classList.add('open');
+  document.getElementById('detailSheet').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailBackdrop').classList.remove('open');
+  document.getElementById('detailSheet').classList.remove('open');
+}
+
+// ── FAB FILTER ────────────────────────────────────────
 function activateNear(relocate) {
   activeFilter = 'near';
-  resetFabs();
-  document.getElementById('fabNear').classList.add('on-green');
+  regionFilter = { region:'', district:'' };
   currentSort = 'wins'; // 내 주변도 당첨 많은 순이 기본
-  const sel = document.getElementById('sortSel');
-  if (sel) sel.value = 'wins';
   if (!relocate) { refresh(); return; }
   locateUser(pos => {
     const center = pos || FALLBACK_CENTER; // 거부 시 서울시청 기준
@@ -854,16 +1003,16 @@ function activateNear(relocate) {
       map.setZoom(15); // 반경 약 1km
     }
     refresh();
+    flash(pos ? '📍 현재 위치로 이동했습니다' : '위치 권한이 없어 서울시청 기준으로 표시합니다');
   });
 }
 
 function toggleFilter(type) {
-  // 검색 중에 필터 버튼을 누르면 검색을 자동 초기화
+  // 검색 중에 필터 버튼을 누르면 검색 자동 초기화
   if (searchQuery) {
     searchQuery = '';
-    const inp = document.getElementById('searchInput');
+    const inp = document.getElementById('ssInput');
     if (inp) inp.value = '';
-    updateSearchActiveUI();
   }
 
   if (type === 'near') {
@@ -872,294 +1021,171 @@ function toggleFilter(type) {
     return;
   }
 
-  // 전국 TOP30: 다시 누르면 내 주변으로 복귀 (전국 전체 리스트는 표시하지 않음)
+  // 전국 TOP30: 다시 누르면 내 주변으로 복귀
   if (activeFilter === 'top30') {
     activateNear(false);
     return;
   }
   activeFilter = 'top30';
-  resetFabs();
-  document.getElementById('fabTop30').classList.add('on-gold');
+  regionFilter = { region:'', district:'' };
   currentSort = 'wins';
-  const sel = document.getElementById('sortSel');
-  if (sel) sel.value = 'wins';
   refresh();
 }
 
-// ── SEARCH ────────────────────────────────────────────
+// ── 전체화면 검색 ─────────────────────────────────────
+let ssRegion = '', ssDistrict = '';
+const REGION_ORDER = ['서울','경기','인천','부산','대구','대전','광주','울산','세종','강원','충북','충남','전북','전남','경북','경남','제주'];
+
+function regionCounts() {
+  const cnt = {};
+  baseStores().forEach(s => {
+    const r = s.addr.split(/\s+/)[0];
+    cnt[r] = (cnt[r] || 0) + 1;
+  });
+  return cnt;
+}
+
+function renderRegionChips() {
+  const cnt = regionCounts();
+  const regions = REGION_ORDER.filter(r => cnt[r]);
+  document.getElementById('regionChips').innerHTML =
+    `<button class="ss-chip ${!ssRegion?'on':''}" onclick="pickRegion('')">전체</button>` +
+    regions.map(r =>
+      `<button class="ss-chip ${ssRegion===r?'on':''}" onclick="pickRegion('${r}')">${r}</button>`
+    ).join('');
+  renderDistrictChips();
+}
+
+function renderDistrictChips() {
+  const secTitle = document.getElementById('districtSecTitle');
+  const wrap = document.getElementById('districtChips');
+  if (!ssRegion) { secTitle.style.display = 'none'; wrap.innerHTML = ''; updateCTA(); return; }
+
+  const cnt = {};
+  baseStores().forEach(s => {
+    const parts = s.addr.split(/\s+/);
+    if (parts[0] !== ssRegion || !parts[1]) return;
+    cnt[parts[1]] = (cnt[parts[1]] || 0) + 1;
+  });
+  const dists = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 24);
+
+  secTitle.style.display = 'block';
+  secTitle.textContent = `${ssRegion} · 시/구/군`;
+  wrap.innerHTML =
+    `<button class="ss-chip ${!ssDistrict?'on':''}" onclick="pickDistrict('')">전체</button>` +
+    dists.map(d =>
+      `<button class="ss-chip ${ssDistrict===d?'on':''}" onclick="pickDistrict('${d}')">${d}</button>`
+    ).join('');
+  updateCTA();
+}
+
+function pickRegion(r) { ssRegion = r; ssDistrict = ''; renderRegionChips(); }
+function pickDistrict(d) { ssDistrict = d; renderDistrictChips(); }
+
+function ctaCount() {
+  const txt = document.getElementById('ssInput').value.trim();
+  if (txt) {
+    const q = txt.replace(/\s/g, '');
+    return baseStores().filter(s =>
+      (s.name||'').replace(/\s/g,'').includes(q) ||
+      (s.addr||'').replace(/\s/g,'').includes(q) ||
+      (s.region||'').replace(/\s/g,'').includes(q)).length;
+  }
+  if (ssRegion) {
+    return baseStores().filter(s => {
+      const parts = s.addr.split(/\s+/);
+      return parts[0] === ssRegion && (!ssDistrict || parts[1] === ssDistrict);
+    }).length;
+  }
+  return 0;
+}
+
+function updateCTA() {
+  const n = ctaCount();
+  document.getElementById('ssCta').textContent = n ? `명당 ${n}곳 보기` : '명당 보기';
+}
+
 function openSearch() {
-  document.getElementById('searchOverlay').classList.add('open');
-  // 현재 검색어가 있으면 input에 복원
-  document.getElementById('searchInput').value = searchQuery;
-  updateSearchActiveUI();
-  setTimeout(() => document.getElementById('searchInput').focus(), 120);
+  ssRegion = regionFilter.region;
+  ssDistrict = regionFilter.district;
+  document.getElementById('ssInput').value = searchQuery;
+  renderRegionChips();
+  updateCTA();
+  document.getElementById('searchScreen').classList.add('open');
 }
-function closeSearch() { document.getElementById('searchOverlay').classList.remove('open'); }
-function bgClose(e) { if (e.target.id === 'searchOverlay') closeSearch(); }
+function closeSearch() { document.getElementById('searchScreen').classList.remove('open'); }
 
-function onSearchInput() {
-  // 입력 중 실시간으로 UI만 업데이트 (검색은 Enter/버튼 클릭 시)
-  updateSearchActiveUI();
-}
-
-function doSearch() {
-  const val = document.getElementById('searchInput').value.trim();
-  if (!val) return;
-  searchQuery = val;
-  activeFilter = null;
-  resetFabs();
-  updateSearchActiveUI();
+function applySearch() {
+  const txt = document.getElementById('ssInput').value.trim();
   closeSearch();
-  refresh();
-  // 바텀시트 완전히 펼치기
-  const sheet = document.getElementById('bottomSheet');
-  if (sheet) sheet.style.transform = 'translateY(0)';
-  // 결과가 있으면 첫 번째 지점으로 지도 이동
-  if (filtered.length && map && typeof naver !== 'undefined') {
-    map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
-    map.setZoom(14);
-  }
-}
+  closeDetail();
+  selectedId = null;
 
-function clearSearch() {
-  searchQuery = '';
-  document.getElementById('searchInput').value = '';
-  updateSearchActiveUI();
-  closeSearch();
-  // 바텀시트 1위만 보이는 기본 상태로 (약간 접힘)
-  const sheet = document.getElementById('bottomSheet');
-  if (sheet) sheet.style.transform = 'translateY(0)';
-  refresh();
-}
-
-function updateSearchActiveUI() {
-  const wrap = document.getElementById('searchActiveWrap');
-  const txt  = document.getElementById('searchActiveTxt');
-  const cur  = document.getElementById('searchInput').value.trim() || searchQuery;
-  if (cur) {
-    wrap.style.display = 'block';
-    txt.textContent = `"${cur}"`;
-  } else {
-    wrap.style.display = 'none';
-  }
-}
-
-// ── LIST RENDER ───────────────────────────────────────
-function makeCardHTML(s, i) {
-  const ref = userPos || FALLBACK_CENTER;
-  const km = (activeFilter === 'near' || currentSort === 'dist')
-    ? `<span>📏 ${dist(s.lat,s.lng,ref.lat,ref.lng).toFixed(1)}km</span>` : '';
-  return `
-  <div class="store-card ${i===0?'active':''}" onclick="selectStore(${s.id})" id="sc-${s.id}">
-    <div class="s-rank ${i<3?'top':''}">${i+1}</div>
-    <div class="s-info">
-      <div class="s-name">${s.name}</div>
-      <div class="s-addr">📍 ${s.addr}</div>
-      <div class="s-badges">
-        ${s.rec ? '<span class="badge b-rec">🔥 추천 명당</span>' : ''}
-        <span class="badge b-win">🎯 1등 ${s.wins}회</span>
-      </div>
-      <div class="s-meta">
-        <span>🕐 ${s.recent}</span>
-        ${km}
-      </div>
-    </div>
-    <div class="s-right">
-      <div class="s-wins">${s.wins}회</div>
-      <div class="s-lbl">1등 배출</div>
-    </div>
-  </div>`;
-}
-
-function renderList() {
-  const container = document.getElementById('storeList');
-
-  // 카운트
-  document.getElementById('sheetCount').textContent =
-    searchQuery ? `검색결과 ${filtered.length}개` : `${filtered.length}개`;
-
-  // 결과 없음
-  if (filtered.length === 0) {
-    // 데이터·지도 로딩이 끝나기 전에는 "없음" 대신 로딩 안내 표시
-    if (!stores.length || !map) {
-      document.getElementById('sheetCount').textContent = '로딩 중…';
-      container.innerHTML = `
-        <div style="padding:32px 18px;text-align:center;color:var(--muted)">
-          <div style="font-size:28px;margin-bottom:10px;animation:bounce 1s ease-in-out infinite">🍀</div>
-          <div style="font-size:13px">리스트를 불러오는 중입니다…</div>
-        </div>`;
-      renderedCount = 0;
-      document.getElementById('lmWrap').style.display = 'none';
-      return;
+  if (txt) {
+    searchQuery = txt;
+    activeFilter = null;
+    regionFilter = { region:'', district:'' };
+    currentSort = 'wins';
+    refresh();
+    setSheet(true); // 검색 결과 리스트 바로 보여주기
+    if (filtered.length && map && typeof naver !== 'undefined') {
+      map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
+      map.setZoom(14);
+    } else if (!filtered.length) {
+      flash('검색 결과가 없습니다');
     }
-    const emptyMsg = searchQuery
-      ? `<div style="font-size:13px">"${searchQuery}"에 해당하는 지점이 없습니다.</div>
-         <div style="font-size:11px;margin-top:6px;opacity:.6">다른 검색어를 입력해 보세요.</div>`
-      : activeFilter === 'near'
-      ? `<div style="font-size:13px">내 주변 ${NEAR_RADIUS_KM}km 안에 1등 배출 지점이 없습니다.</div>
-         <div style="font-size:11px;margin-top:6px;opacity:.6">🏆 전국 TOP30 버튼으로 명당을 찾아보세요.</div>`
-      : `<div style="font-size:13px">표시할 지점이 없습니다.</div>`;
-    container.innerHTML = `
-      <div style="padding:32px 18px;text-align:center;color:var(--muted)">
-        <div style="font-size:28px;margin-bottom:10px">🔍</div>
-        ${emptyMsg}
-      </div>`;
-    renderedCount = 0;
-    document.getElementById('lmWrap').style.display = 'none';
     return;
   }
 
-  // 검색 모드: 결과 전체를 즉시 표시 (더보기 없음)
-  // 일반 모드: 결과 10개 이하면 전부, 초과면 1개만 표시
-  const initCount = searchQuery
-    ? filtered.length
-    : (filtered.length <= LOAD_MORE_COUNT ? filtered.length : INITIAL_COUNT);
-
-  renderedCount = initCount;
-  container.innerHTML = filtered
-    .slice(0, initCount)
-    .map((s, i) => makeCardHTML(s, i))
-    .join('');
-
-  updateLM();
-}
-
-// ── LOAD MORE ─────────────────────────────────────────
-function updateLM() {
-  const wrap = document.getElementById('lmWrap');
-  const remaining = filtered.length - renderedCount;
-
-  if (remaining <= 0) {
-    wrap.style.display = 'none';
+  if (ssRegion) {
+    searchQuery = '';
+    activeFilter = 'region';
+    regionFilter = { region: ssRegion, district: ssDistrict };
+    currentSort = 'wins';
+    refresh();
+    if (filtered.length && map && typeof naver !== 'undefined') {
+      map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
+      map.setZoom(ssDistrict ? 13 : 11);
+    }
     return;
   }
-  wrap.style.display = 'block';
-  document.getElementById('lmIcon').textContent = '▾';
-  document.getElementById('lmText').textContent =
-    `+ 더보기 (${Math.min(remaining, LOAD_MORE_COUNT)}개 더)`;
+
+  // 아무것도 선택 안 함 → 내 주변 유지
+  activateNear(false);
 }
 
-function toggleMore() {
-  const container = document.getElementById('storeList');
-  const from = renderedCount;
-  const to   = Math.min(renderedCount + LOAD_MORE_COUNT, filtered.length);
-
-  // 추가할 카드를 DOM에 append (기존 카드 유지)
-  const fragment = document.createDocumentFragment();
-  for (let i = from; i < to; i++) {
-    const div = document.createElement('div');
-    div.innerHTML = makeCardHTML(filtered[i], i).trim();
-    const card = div.firstChild;
-    card.classList.add('reveal');
-    fragment.appendChild(card);
-  }
-  container.appendChild(fragment);
-  renderedCount = to;
-
-  updateLM();
+// ── TOAST ─────────────────────────────────────────────
+let _toastTimer = null;
+function flash(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 1700);
 }
 
-// ── SELECT STORE ──────────────────────────────────────
-// 네이버 지도 검색어: 정제된 도로명주소 (건물번호까지, 호수 등 세부주소 제외)
-// 판매점 다수가 네이버 플레이스에 미등록된 가판점이라 상호 검색은 결과가 없음.
-// 주소 검색은 등록 여부와 무관하게 항상 정확한 위치에 핀이 표시됨.
-function buildMapQuery(s) {
-  return cleanAddr(s.addr || '');
-}
-
-function selectStore(id) {
-  const s = stores.find(x => x.id === id);
-  if (!s) return;
-
-  // 카드가 아직 DOM에 없으면 해당 위치까지 렌더링
-  const idx = filtered.findIndex(x => x.id === id);
-  if (idx >= renderedCount) {
-    const container = document.getElementById('storeList');
-    const to = idx + 1;
-    for (let i = renderedCount; i < to; i++) {
-      const div = document.createElement('div');
-      div.innerHTML = makeCardHTML(filtered[i], i).trim();
-      container.appendChild(div.firstChild);
-    }
-    renderedCount = to;
-    updateLM();
-  }
-
-  // highlight list
-  document.querySelectorAll('.store-card').forEach(el => el.classList.remove('active'));
-  const card = document.getElementById('sc-'+id);
-  if (card) { card.classList.remove('hidden'); card.scrollIntoView({block:'nearest',behavior:'smooth'}); card.classList.add('active'); }
-
-  // pan map
-  if (map && typeof naver !== 'undefined') map.panTo(new naver.maps.LatLng(s.lat, s.lng));
-
-  // popup
-  // 네이버 지도 검색 URL: 정제된 도로명주소로 검색 → 정확한 위치에 핀 표시
-  const naverMapUrl = `https://map.naver.com/p/search/${encodeURIComponent(buildMapQuery(s))}`;
-
-  document.getElementById('popupContent').innerHTML = `
-    <div class="popup-grip"><div></div></div>
-    <div class="popup-badge">${s.rec ? '👑 추천 명당' : '🎯 1등 배출 명당'}</div>
-    <div class="popup-name">${s.name}</div>
-    <div class="popup-addr">${s.addr}</div>
-    <div class="popup-stats">
-      <div class="ps"><div class="ps-v">${s.wins}</div><div class="ps-l">1등 배출</div></div>
-      <div class="ps"><div class="ps-v sm">${s.recent}</div><div class="ps-l">최근 당첨</div></div>
-    </div>
-    <a class="naver-btn" href="${naverMapUrl}" target="_blank" rel="noopener noreferrer">
-      <span class="naver-n">N</span> 네이버지도로 이동
-    </a>`;
-
-  const popup = document.getElementById('storePopup');
-  popup.style.bottom = '0px';
-  popup.classList.add('visible');
-}
-function closePopup() { document.getElementById('storePopup').classList.remove('visible'); }
-function sortStores(v) { currentSort = v; refresh(); }
-
-// ── SHEET DRAG ────────────────────────────────────────
-function setupDrag() {
-  const sheet = document.getElementById('bottomSheet');
-  const handle = document.getElementById('sheetHandle');
-  let sy = 0, dragging = false;
-
-  setTimeout(() => { sheetH = sheet.offsetHeight; }, 400);
-
-  handle.addEventListener('pointerdown', e => {
-    dragging = true; sy = e.clientY;
-    sheet.style.transition = 'none';
-    handle.setPointerCapture(e.pointerId);
-  });
-  handle.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const dy = Math.max(0, Math.min(sheet.offsetHeight - 56, e.clientY - sy));
-    sheet.style.transform = `translateY(${dy}px)`;
-  });
-  handle.addEventListener('pointerup', e => {
-    if (!dragging) return;
-    dragging = false;
-    sheet.style.transition = '';
-    const dy = e.clientY - sy;
-    sheet.style.transform = dy > 70 ? `translateY(${sheet.offsetHeight - 56}px)` : 'translateY(0)';
-  });
+// ── 리스트 영역 메시지 (데이터 로드 실패 등) ─────────────
+function showListMessage(html) {
+  const box = `<div class="empty-box" style="width:100%"><div style="font-size:13px;line-height:1.8">${html}</div></div>`;
+  document.getElementById('cardScroll').innerHTML = box;
+  document.getElementById('rowList').innerHTML = box;
 }
 
 // ── BOOT ──────────────────────────────────────────────
-const NAVER_CLIENT_ID = 'a5y7q9sxkg'; // ← 발급받은 키 입력
+const NAVER_CLIENT_ID = 'a5y7q9sxkg';
 
 window.addEventListener('load', async () => {
-  setupDrag();
+  // 로딩 표시
+  renderSheet();
 
   // 사전 지오코딩 좌표 로드 → 지점 데이터 로드 (좌표가 즉시 정확하게 매핑됨)
   await loadCoordCache('./coords_cache.json?v=' + Date.now());
   await loadStoresFromJSON();
 
-  // 네이버 지도 동적 로드
   loadNaverMap(NAVER_CLIENT_ID);
 });
 
 function loadNaverMap(clientId) {
-  // 키 미설정이면 바로 폴백
   if (!clientId || clientId === 'YOUR_CLIENT_ID') {
     showMapFallback('네이버 지도 API 키를 입력해주세요.');
     return;
@@ -1176,11 +1202,7 @@ function loadNaverMap(clientId) {
         if (pos) placeMyMarker();
 
         activeFilter = 'near';
-        currentSort  = 'wins'; // 내 주변도 당첨 많은 순이 기본
-        document.getElementById('fabNear').classList.add('on-green');
-        const sel = document.getElementById('sortSel');
-        if (sel) sel.value = 'wins';
-
+        currentSort  = 'wins';
         refresh();
 
         // 화면에 보이는(필터된) 지점부터 정확한 좌표로 지오코딩, 나머지는 백그라운드
@@ -1195,33 +1217,26 @@ function loadNaverMap(clientId) {
     });
   };
   script.onerror = () => {
-    showMapFallback('네이버 지도 API 로드 실패.<br>Client ID를 확인하거나 인터넷 연결을 확인하세요.');
+    showMapFallback('네이버 지도 API 로드 실패.<br>Client ID 또는 인터넷 연결을 확인하세요.');
   };
   document.head.appendChild(script);
 }
 
 function showMapFallback(msg) {
   document.getElementById('map').innerHTML = `
-    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#E8F5EE,#F7F8FA);
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,#E7EBE4,#F6F7F4);
                 display:flex;flex-direction:column;align-items:center;justify-content:center;
                 gap:16px;padding:32px;text-align:center">
       <div style="font-size:48px">🗺️</div>
-      <div style="font-family:'Black Han Sans',sans-serif;font-size:18px;color:#2C8C5E">
-        네이버 지도 API 연동 필요
-      </div>
-      <div style="font-size:13px;color:#718096;line-height:1.8;max-width:320px">
-        ${msg}<br><br>
-        <code style="background:rgba(44,140,94,0.1);padding:2px 8px;border-radius:4px;
-                     color:#2C8C5E;font-size:12px">NAVER_CLIENT_ID</code> 값을 수정하세요.<br>
+      <div style="font-size:18px;font-weight:800;color:var(--primary2)">네이버 지도 연동 필요</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;max-width:320px">
+        ${msg}<br>
         <span style="font-size:11px;opacity:.7">지점 목록·검색·필터는 정상 작동합니다.</span>
       </div>
     </div>`;
-  // 지도 없어도 목록 기능은 정상 동작 — 전국 TOP30 표시
   userPos = null;
   activeFilter = 'top30';
   currentSort  = 'wins';
-  const fabTop30 = document.getElementById('fabTop30');
-  if (fabTop30) fabTop30.classList.add('on-gold');
   refresh();
 }
 </script>
