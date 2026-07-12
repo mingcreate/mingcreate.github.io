@@ -311,6 +311,31 @@
   }
   .ss-cta:active { transform:scale(.98); }
 
+  /* ── 위치 허용 팝업 ── */
+  .geo-overlay {
+    position:fixed; inset:0; z-index:90;
+    background:rgba(22,24,26,.35);
+    display:none; align-items:center; justify-content:center;
+    padding:24px;
+    animation:fadeIn .2s ease;
+  }
+  .geo-overlay.open { display:flex; }
+  .geo-box {
+    background:#fff; border-radius:20px;
+    padding:26px 20px 20px;
+    width:100%; max-width:320px; text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.2);
+  }
+  .geo-box h3 { font-size:17px; font-weight:800; margin:2px 0 8px; }
+  .geo-box p { font-size:13px; color:var(--muted3); line-height:1.65; }
+  .geo-btns { display:flex; gap:8px; margin-top:18px; }
+  .geo-btns button {
+    flex:1; height:46px; border:none; border-radius:12px;
+    font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .geo-ok { background:var(--primary); color:#fff; }
+  .geo-no { background:var(--surface); color:var(--text2); }
+
   /* ── TOAST ── */
   .toast {
     position:fixed; bottom:calc(var(--sheet-h) + 76px); left:50%; transform:translateX(-50%);
@@ -464,6 +489,18 @@
   </div>
 </div>
 
+<!-- 위치 허용 팝업 -->
+<div class="geo-overlay" id="geoPopup" onclick="if(event.target.id==='geoPopup')closeGeoPopup()">
+  <div class="geo-box">
+    <h3 id="geoTitle">위치정보를 허용하시겠습니까?</h3>
+    <p id="geoDesc"></p>
+    <div class="geo-btns">
+      <button class="geo-no" onclick="closeGeoPopup()">닫기</button>
+      <button class="geo-ok" id="geoOkBtn" onclick="geoAllow()">허용하기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 토스트 -->
 <div class="toast" id="toast"></div>
 
@@ -530,12 +567,15 @@ async function loadStoresFromJSON() {
   }
 }
 
-// 주소에서 시/구 추출
+// 주소에서 지역 추출: 시/도 + 시/군/구 (+ 시 아래 구/군까지)
+// 예) "경기 고양시 일산동구 중앙로…" → "경기 고양시 일산동구"
 function guessRegion(addr) {
-  const m = addr.match(/([가-힣]+(?:시|도))\s+([가-힣]+(?:구|시|군))/);
-  if (m) return `${m[1].replace(/특별자치|광역|특별|자치/g,"")} ${m[2]}`;
-  const m2 = addr.match(/([가-힣]+(?:시|도|구))/);
-  return m2 ? m2[1] : addr.slice(0, 6);
+  const p = (addr || '').split(/\s+/);
+  const out = [p[0] || ''];
+  if (p[1] && /(시|구|군)$/.test(p[1])) out.push(p[1]);
+  if (p[2] && /(구|군)$/.test(p[2]) && /시$/.test(p[1] || '')) out.push(p[2]);
+  const r = out.join(' ').trim();
+  return r || (addr || '').slice(0, 6);
 }
 
 // 회차 → 추첨일 (1회 = 2002.12.07, 매주 토요일)
@@ -779,7 +819,56 @@ function placeMyMarker() {
 }
 
 function onLocate() {
-  activateNear(true);
+  if (userPos) { activateNear(true); return; } // 이미 허용됨 → 바로 이동
+  // 권한 상태에 따라 안내 팝업 표시
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'geolocation' })
+      .then(st => {
+        if (st.state === 'granted') activateNear(true);
+        else showGeoPopup(st.state); // 'prompt' | 'denied'
+      })
+      .catch(() => showGeoPopup('prompt'));
+  } else {
+    showGeoPopup('prompt');
+  }
+}
+
+// 기기별 위치 허용 방법 안내 문구
+function geoGuideText() {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return '아이폰은 주소창의 <b>AA</b>(또는 가) 아이콘 →<br>' +
+           '<b>웹 사이트 설정 → 위치 → 허용</b>으로 변경해주세요.<br><br>' +
+           '안 보이면 <b>설정 앱 → 개인정보 보호 → 위치 서비스</b>에서<br>' +
+           '사용 중인 브라우저를 허용으로 바꾼 뒤 다시 시도해주세요.';
+  }
+  if (/Android/i.test(ua)) {
+    return '주소창 왼쪽의 <b>자물쇠 아이콘 → 권한 → 위치</b>를<br>' +
+           '<b>허용</b>으로 변경한 뒤 다시 시도해주세요.<br><br>' +
+           '안 보이면 <b>휴대폰 설정 → 애플리케이션 → 브라우저 →<br>권한 → 위치</b>를 허용해주세요.';
+  }
+  return '주소창 왼쪽의 <b>자물쇠 아이콘 → 위치</b>를<br>' +
+         '<b>허용</b>으로 변경한 뒤 다시 시도해주세요.';
+}
+
+function showGeoPopup(state) {
+  const denied = state === 'denied';
+  document.getElementById('geoTitle').textContent =
+    denied ? '위치정보가 차단되어 있습니다' : '위치정보를 허용하시겠습니까?';
+  document.getElementById('geoDesc').innerHTML = denied
+    ? geoGuideText()
+    : '내 주변의 1등 배출 명당을 찾으려면<br>위치정보 접근 허용이 필요합니다.';
+  document.getElementById('geoOkBtn').textContent = denied ? '다시 시도' : '허용하기';
+  document.getElementById('geoPopup').classList.add('open');
+}
+
+function closeGeoPopup() {
+  document.getElementById('geoPopup').classList.remove('open');
+}
+
+function geoAllow() {
+  closeGeoPopup();
+  activateNear(true); // 'prompt' 상태면 브라우저의 위치 허용 요청이 뜸
 }
 
 // ── FILTER & SORT ──────────────────────────────────────
@@ -992,6 +1081,8 @@ function renderSheet() {
   document.getElementById('sortLabel').textContent = SORT_LABELS[currentSort] || '정렬';
   document.querySelectorAll('.sort-item').forEach(el =>
     el.classList.toggle('active', el.dataset.sort === currentSort));
+  // 전국 TOP30은 순위가 고정이므로 정렬 필터 숨김
+  document.querySelector('.sort-wrap').style.display = activeFilter === 'top30' ? 'none' : '';
   renderCards();
   renderRows(true);
   updateCollapsedH();
@@ -1321,6 +1412,13 @@ function toggleFilter(type) {
   currentSort = 'wins';
   selectedId = null; // 1위가 선택된 상태로 시작
   refresh();
+  // 1위 명당 위치로 지도 이동
+  if (filtered.length && map && typeof naver !== 'undefined') {
+    map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
+    map.setZoom(14);
+    searchCenter = { lat: filtered[0].lat, lng: filtered[0].lng };
+    setAreaButton(false);
+  }
 }
 
 // ── 전체화면 검색 ─────────────────────────────────────
