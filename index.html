@@ -80,16 +80,16 @@
     color:var(--muted3); font-size:12px; font-weight:600;
     padding:6px 12px; border-radius:16px;
     box-shadow:0 2px 8px rgba(0,0,0,.07);
-    transition:all .18s;
   }
   .notice-pill i { width:6px; height:6px; border-radius:50%; background:var(--primary); font-style:normal; }
   /* 지도 이동 시: '이 주변 검색하기' 버튼 모드 */
   .notice-pill.search-mode {
     pointer-events:all; cursor:pointer;
-    background:#fff; color:var(--primary2);
+    background:var(--primary-lt); color:var(--primary2);
+    border:1.5px solid var(--primary);
     font-size:13px; font-weight:800;
     padding:9px 16px;
-    box-shadow:0 4px 14px rgba(0,0,0,.14);
+    box-shadow:0 4px 14px rgba(18,185,129,.25);
   }
   .notice-pill.search-mode i { display:none; }
   .notice-pill.search-mode:active { transform:scale(.96); }
@@ -720,7 +720,7 @@ function setAreaButton(show) {
   const txt  = document.getElementById('noticeTxt');
   if (!pill || !txt) return;
   pill.classList.toggle('search-mode', show);
-  txt.textContent = show ? '↻ 이 주변 검색하기' : latestRoundText;
+  txt.textContent = show ? '이 주변 검색하기' : latestRoundText;
 }
 
 function checkMapMoved() {
