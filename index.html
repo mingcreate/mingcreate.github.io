@@ -53,7 +53,7 @@
   .top-chip {
     display:flex; align-items:center; gap:5px;
     font-size:13px; font-weight:600; color:var(--text2);
-    background:#fff; padding:11px 15px; border-radius:13px;
+    background:#fff; padding:11px 15px; border-radius:999px;
     white-space:nowrap; border:none; cursor:pointer;
     box-shadow:0 4px 12px rgba(0,0,0,.08);
     font-family:inherit;
@@ -78,7 +78,7 @@
     display:flex; align-items:center; gap:7px;
     background:rgba(255,255,255,.85); backdrop-filter:blur(6px);
     color:var(--muted3); font-size:12px; font-weight:600;
-    padding:6px 12px; border-radius:16px;
+    padding:6px 12px; border-radius:999px;
     box-shadow:0 2px 8px rgba(0,0,0,.07);
   }
   .notice-pill i { width:6px; height:6px; border-radius:50%; background:var(--primary); font-style:normal; }
@@ -361,12 +361,12 @@
     position:absolute; top:-16px; left:-6px; z-index:2; /* 말풍선 왼쪽 모서리 기준 */
     background:var(--dark); color:#fff;
     font-size:12px; font-weight:700;
-    padding:5px 9px; border-radius:9px; line-height:1.1;
+    padding:5px 9px; border-radius:999px; line-height:1.1;
     white-space:nowrap;
   }
   .nv-lead .bubble {
     background:#fff; border:1px solid var(--primary);
-    border-radius:15px; padding:8px 13px;
+    border-radius:999px; padding:8px 13px;
     font-size:14px; font-weight:700; color:var(--text);
     white-space:nowrap; max-width:146px; overflow:hidden; text-overflow:ellipsis;
     box-shadow:0 4px 12px rgba(0,0,0,.16);
@@ -378,7 +378,7 @@
   }
   .nv-mini { width:150px; display:flex; justify-content:center; }
   .nv-mini .pill {
-    background:#fff; border:1.5px solid #C5CBC2; border-radius:11px;
+    background:#fff; border:1.5px solid #C5CBC2; border-radius:999px;
     padding:5px 10px; font-size:11px; font-weight:700; color:var(--text2);
     max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     box-shadow:0 3px 8px rgba(0,0,0,.14);
@@ -1077,7 +1077,9 @@ function sheetTitleText() {
 
 function renderSheet() {
   document.getElementById('sheetTitle').textContent = sheetTitleText();
-  document.getElementById('sheetCount').textContent = filtered.length ? `${filtered.length}곳` : '';
+  // TOP30은 항상 30곳이라 카운트 표시 생략
+  document.getElementById('sheetCount').textContent =
+    (activeFilter === 'top30' || !filtered.length) ? '' : `${filtered.length}곳`;
   document.getElementById('sortLabel').textContent = SORT_LABELS[currentSort] || '정렬';
   document.querySelectorAll('.sort-item').forEach(el =>
     el.classList.toggle('active', el.dataset.sort === currentSort));
@@ -1603,6 +1605,9 @@ function loadNaverMap(clientId) {
         activeFilter = 'near';
         currentSort  = 'wins';
         refresh();
+
+        // 위치 거부/실패 시 처음에도 안내 토스트 표시
+        if (!pos) flash('위치 권한이 없어 서울시청 기준으로 표시합니다');
 
         // 화면에 보이는(필터된) 지점부터 정확한 좌표로 지오코딩, 나머지는 백그라운드
         const inView = new Set(filtered.map(s => s.id));
