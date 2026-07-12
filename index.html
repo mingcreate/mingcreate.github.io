@@ -80,8 +80,19 @@
     color:var(--muted3); font-size:12px; font-weight:600;
     padding:6px 12px; border-radius:16px;
     box-shadow:0 2px 8px rgba(0,0,0,.07);
+    transition:all .18s;
   }
   .notice-pill i { width:6px; height:6px; border-radius:50%; background:var(--primary); font-style:normal; }
+  /* 지도 이동 시: '이 주변 검색하기' 버튼 모드 */
+  .notice-pill.search-mode {
+    pointer-events:all; cursor:pointer;
+    background:#fff; color:var(--primary2);
+    font-size:13px; font-weight:800;
+    padding:9px 16px;
+    box-shadow:0 4px 14px rgba(0,0,0,.14);
+  }
+  .notice-pill.search-mode i { display:none; }
+  .notice-pill.search-mode:active { transform:scale(.96); }
 
   /* ── LOCATE (sheet 높이 따라 이동) ── */
   :root { --sheet-h: 31%; }
@@ -215,10 +226,12 @@
     box-shadow:0 -14px 40px rgba(0,0,0,.2);
     display:none; flex-direction:column; overflow:hidden;
     animation:sheetUp .32s cubic-bezier(.4,0,.2,1);
+    transition:height .3s cubic-bezier(.4,0,.2,1);
+    touch-action:none; /* 시트 전체가 드래그 영역 */
   }
   .detail-backdrop.open { display:block; }
   .detail-sheet.open { display:flex; }
-  .detail-body { flex:1; overflow-y:auto; padding:10px 20px 20px; }
+  .detail-body { flex:1; overflow-y:auto; padding:10px 20px 20px; touch-action:pan-y; }
   .d-badge {
     display:inline-flex; align-items:center; gap:4px;
     font-size:12px; font-weight:800; color:var(--primary2);
@@ -315,11 +328,16 @@
     padding-top:16px;
     filter:drop-shadow(0 6px 10px rgba(0,0,0,.22));
   }
+  .nv-lead .bwrap {
+    position:relative;
+    display:flex; flex-direction:column; align-items:center;
+  }
   .nv-lead .chip {
-    position:absolute; top:0; left:20px; z-index:2;
+    position:absolute; top:-16px; left:-6px; z-index:2; /* 말풍선 왼쪽 모서리 기준 */
     background:var(--dark); color:#fff;
     font-size:12px; font-weight:700;
     padding:5px 9px; border-radius:9px; line-height:1.1;
+    white-space:nowrap;
   }
   .nv-lead .bubble {
     background:#fff; border:1px solid var(--primary);
@@ -378,9 +396,11 @@
   </button>
 </div>
 
-<!-- 최신 회차 알림 -->
+<!-- 최신 회차 알림 / 이 주변 검색하기 버튼 -->
 <div class="notice-wrap">
-  <div class="notice-pill"><i></i><span id="noticeTxt">최신 회차 불러오는 중…</span></div>
+  <div class="notice-pill" id="noticePill" onclick="searchThisArea()">
+    <i></i><span id="noticeTxt">최신 회차 불러오는 중…</span>
+  </div>
 </div>
 
 <!-- 현재 위치 버튼 -->
@@ -460,8 +480,11 @@ async function loadStoresFromJSON() {
     const data = await res.json();
     const meta = data.meta || {};
     const liveRound = meta.latestRound || 0;
-    const notice = document.getElementById("noticeTxt");
-    if (notice && liveRound) notice.textContent = `최신 ${liveRound}회 반영`;
+    if (liveRound) {
+      latestRoundText = `최신 ${liveRound}회 반영`;
+      const notice = document.getElementById("noticeTxt");
+      if (notice) notice.textContent = latestRoundText;
+    }
 
     const rawStores = Object.values(data.stores || {});
     if (rawStores.length === 0) throw new Error("판매점 데이터 비어있음");
@@ -524,14 +547,19 @@ function roundDate(n) {
 
 // ── STATE ─────────────────────────────────────────────
 const FALLBACK_CENTER = { lat: 37.5665, lng: 126.9780 }; // 서울시청 (위치 거부 시 기준점)
-const NEAR_RADIUS_KM = 1;   // '내 주변' 필터 반경
+const NEAR_RADIUS_KM = 0.8; // '내 주변' 필터 반경 (800m)
+const NEAR_RADIUS_LABEL = NEAR_RADIUS_KM < 1 ? Math.round(NEAR_RADIUS_KM * 1000) + 'm' : NEAR_RADIUS_KM + 'km';
 const ROW_CHUNK = 50;       // 펼침 리스트 증분 렌더 단위
 let map = null;
 let markers = [];
 let myMarker = null;
 let userPos = null;
-let activeFilter = null;          // 'near' | 'top30' | 'region' | null
+let activeFilter = null;          // 'near' | 'top30' | 'region' | 'area' | null
 let regionFilter = { region:'', district:'' };
+let areaCenter = null;            // '이 주변 검색' 기준 좌표
+let areaRadiusKm = 1;             // '이 주변 검색' 반경 (지도 화면 기준)
+let searchCenter = null;          // 마지막 검색 기준 좌표 (버튼 표시 판단용)
+let latestRoundText = '최신 회차 불러오는 중…';
 let searchQuery = '';
 let currentSort = 'wins';
 let filtered = [];
@@ -617,9 +645,11 @@ function renderMarkers() {
         // 선택된 지점: 이름 말풍선 + 당첨횟수 칩
         html = `
           <div class="nv-lead">
-            <div class="chip">${s.wins}회</div>
-            <div class="bubble">${s.name}</div>
-            <div class="tail"></div>
+            <div class="bwrap">
+              <div class="chip">${s.wins}회</div>
+              <div class="bubble">${s.name}</div>
+              <div class="tail"></div>
+            </div>
           </div>`;
         anchor = new naver.maps.Point(75, 62);
         zIndex = 20;
@@ -681,6 +711,47 @@ function bindMapEvents() {
   if (!map) return;
   naver.maps.Event.addListener(map, 'zoom_changed', () => renderMarkers());
   naver.maps.Event.addListener(map, 'click', () => { closeDetail(); closeSortMenu(); });
+  naver.maps.Event.addListener(map, 'idle', checkMapMoved); // 이동 멈춘 뒤 버튼 표시 판단
+}
+
+// ── '이 주변 검색하기' ─────────────────────────────────
+function setAreaButton(show) {
+  const pill = document.getElementById('noticePill');
+  const txt  = document.getElementById('noticeTxt');
+  if (!pill || !txt) return;
+  pill.classList.toggle('search-mode', show);
+  txt.textContent = show ? '↻ 이 주변 검색하기' : latestRoundText;
+}
+
+function checkMapMoved() {
+  if (!map) return;
+  const c = map.getCenter();
+  const base = searchCenter || refPoint();
+  const b = map.getBounds();
+  // 화면 절반 너비의 25% 이상(최소 150m) 벗어나면 버튼 표시
+  const halfW = dist(c.lat(), c.lng(), c.lat(), b.getNE().lng());
+  const moved = dist(c.lat(), c.lng(), base.lat, base.lng);
+  setAreaButton(moved > Math.max(0.15, halfW * 0.25));
+}
+
+function searchThisArea() {
+  if (!map || !document.getElementById('noticePill').classList.contains('search-mode')) return;
+  const c = map.getCenter();
+  areaCenter = { lat: c.lat(), lng: c.lng() };
+  const b = map.getBounds();
+  // 반경 = 지도 화면 절반(가로/세로 중 짧은 쪽), 최소 800m
+  const halfW = dist(areaCenter.lat, areaCenter.lng, areaCenter.lat, b.getNE().lng());
+  const halfH = dist(areaCenter.lat, areaCenter.lng, b.getNE().lat(), areaCenter.lng);
+  areaRadiusKm = Math.max(NEAR_RADIUS_KM, Math.min(halfW, halfH));
+  searchCenter = areaCenter;
+  searchQuery = '';
+  activeFilter = 'area';
+  regionFilter = { region:'', district:'' };
+  currentSort = 'wins';
+  selectedId = null;
+  setAreaButton(false);
+  refresh();
+  flash(filtered.length ? `이 주변 명당 ${filtered.length}곳을 찾았습니다` : '이 지역에 1등 배출 지점이 없습니다');
 }
 
 // ── USER LOCATION ──────────────────────────────────────
@@ -718,8 +789,14 @@ function dist(a, b, c, d) {
   return R*2*Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 }
 
+// 거리 기준점: '이 주변 검색' 모드면 검색한 지도 중심, 그 외엔 내 위치(없으면 서울시청)
+function refPoint() {
+  if (activeFilter === 'area' && areaCenter) return areaCenter;
+  return userPos || FALLBACK_CENTER;
+}
+
 function distLabel(s) {
-  const ref = userPos || FALLBACK_CENTER;
+  const ref = refPoint();
   const km = dist(s.lat, s.lng, ref.lat, ref.lng);
   return km < 1 ? Math.round(km * 1000) + 'm' : km.toFixed(1) + 'km';
 }
@@ -752,6 +829,8 @@ function buildList() {
   } else if (activeFilter === 'near') {
     const ref = userPos || FALLBACK_CENTER;
     list = list.filter(s => dist(s.lat, s.lng, ref.lat, ref.lng) <= NEAR_RADIUS_KM);
+  } else if (activeFilter === 'area' && areaCenter) {
+    list = list.filter(s => dist(s.lat, s.lng, areaCenter.lat, areaCenter.lng) <= areaRadiusKm);
   } else if (activeFilter === 'region' && regionFilter.region) {
     list = list.filter(s => {
       const parts = s.addr.split(/\s+/);
@@ -763,7 +842,7 @@ function buildList() {
   if (currentSort === 'wins')        list.sort((a,b) => b.wins - a.wins);
   else if (currentSort === 'recent') list.sort((a,b) => b.recentNum - a.recentNum);
   else if (currentSort === 'dist') {
-    const ref = userPos || FALLBACK_CENTER;
+    const ref = refPoint();
     list.sort((a,b) => dist(a.lat,a.lng,ref.lat,ref.lng) - dist(b.lat,b.lng,ref.lat,ref.lng));
   }
   return list;
@@ -901,6 +980,7 @@ document.addEventListener('click', e => {
 function sheetTitleText() {
   if (searchQuery) return `"${searchQuery}" 검색 결과`;
   if (activeFilter === 'top30') return '전국 TOP30';
+  if (activeFilter === 'area') return '이 주변 명당';
   if (activeFilter === 'region')
     return `${regionFilter.region}${regionFilter.district ? ' ' + regionFilter.district : ''} 명당`;
   return '내 주변 명당';
@@ -928,7 +1008,9 @@ function emptyBoxHTML() {
   const msg = searchQuery
     ? `"${searchQuery}"에 해당하는 지점이 없습니다.`
     : activeFilter === 'near'
-    ? `내 주변 ${NEAR_RADIUS_KM}km 안에 1등 배출 지점이 없습니다.`
+    ? `내 주변 ${NEAR_RADIUS_LABEL} 안에 1등 배출 지점이 없습니다.`
+    : activeFilter === 'area'
+    ? '이 지역에 1등 배출 지점이 없습니다.'
     : '표시할 지점이 없습니다.';
   const sub = searchQuery
     ? '다른 검색어를 입력해 보세요.'
@@ -1115,6 +1197,8 @@ function openDetail(id) {
 
   document.getElementById('detailBackdrop').classList.add('open');
   document.getElementById('detailSheet').classList.add('open');
+  detailExpanded = true; // 항상 전체 높이로 열기
+  applyDetailHeight();
 }
 
 function closeDetail() {
@@ -1122,10 +1206,81 @@ function closeDetail() {
   document.getElementById('detailSheet').classList.remove('open');
 }
 
+// ── 상세 시트 드래그 (전체 영역) ───────────────────────
+// 위로 끌면 전체(72%), 아래로 끌면 축소(42%), 축소 상태에서 더 내리면 닫힘
+const DETAIL_FULL = 0.72, DETAIL_COMPACT = 0.42;
+let detailExpanded = true;
+
+function applyDetailHeight() {
+  const el = document.getElementById('detailSheet');
+  el.style.height = Math.round(window.innerHeight * (detailExpanded ? DETAIL_FULL : DETAIL_COMPACT)) + 'px';
+}
+
+(function setupDetailDrag() {
+  const sheet = document.getElementById('detailSheet');
+  const body  = document.getElementById('detailBody');
+  let startY = 0, startX = 0, lastY = 0, startH = 0;
+  let tracking = false, active = false, fromBody = false, startedExpanded = true;
+
+  sheet.addEventListener('pointerdown', e => {
+    tracking = true; active = false;
+    startY = lastY = e.clientY; startX = e.clientX;
+    startH = sheet.getBoundingClientRect().height;
+    startedExpanded = detailExpanded; // 전환 애니메이션 중이어도 상태 기준으로 판정
+    fromBody = !!e.target.closest('.detail-body');
+  });
+
+  sheet.addEventListener('pointermove', e => {
+    if (!tracking) return;
+    lastY = e.clientY;
+    const dy = e.clientY - startY; // 아래로 +
+    const dx = e.clientX - startX;
+    if (!active) {
+      if (Math.abs(dy) < 10 || Math.abs(dy) <= Math.abs(dx)) return;
+      // 내역 스크롤 중이면 양보 (맨 위에서 아래로 끌 때만 시트 드래그)
+      if (fromBody && !(body.scrollTop <= 0 && dy > 0)) { tracking = false; return; }
+      active = true;
+      sheet.style.transition = 'none';
+      try { sheet.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    const vh = window.innerHeight;
+    const h = Math.max(vh * 0.25, Math.min(vh * 0.85, startH - dy));
+    sheet.style.height = h + 'px';
+  });
+
+  const finish = () => {
+    if (!tracking) return;
+    tracking = false;
+    if (!active) return;
+    active = false;
+    sheet.style.transition = '';
+    _suppressClick = true; // 드래그 직후 CTA 오클릭 방지
+    setTimeout(() => { _suppressClick = false; }, 120);
+
+    if (lastY < startY) {            // 위로 → 전체
+      detailExpanded = true;
+      applyDetailHeight();
+    } else if (startedExpanded) {    // 전체에서 아래로 → 축소
+      detailExpanded = false;
+      applyDetailHeight();
+    } else {                         // 축소에서 아래로 → 닫기
+      sheet.style.height = '';
+      closeDetail();
+    }
+  };
+  sheet.addEventListener('pointerup', finish);
+  sheet.addEventListener('pointercancel', finish);
+
+  sheet.addEventListener('click', e => {
+    if (_suppressClick) { e.stopPropagation(); e.preventDefault(); _suppressClick = false; }
+  }, true);
+})();
+
 // ── FAB FILTER ────────────────────────────────────────
 function activateNear(relocate) {
   activeFilter = 'near';
   regionFilter = { region:'', district:'' };
+  areaCenter = null;
   currentSort = 'wins'; // 내 주변도 당첨 많은 순이 기본
   selectedId = null;    // 1위가 선택된 상태로 시작
   if (!relocate) { refresh(); return; }
@@ -1135,6 +1290,8 @@ function activateNear(relocate) {
       map.setCenter(new naver.maps.LatLng(center.lat, center.lng));
       map.setZoom(15); // 반경 약 1km
     }
+    searchCenter = center;
+    setAreaButton(false);
     refresh();
     flash(pos ? '📍 현재 위치로 이동했습니다' : '위치 권한이 없어 서울시청 기준으로 표시합니다');
   });
@@ -1259,12 +1416,15 @@ function applySearch() {
     searchQuery = txt;
     activeFilter = null;
     regionFilter = { region:'', district:'' };
+    areaCenter = null;
     currentSort = 'wins';
     refresh();
     setSheet(true); // 검색 결과 리스트 바로 보여주기
     if (filtered.length && map && typeof naver !== 'undefined') {
       map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
       map.setZoom(14);
+      searchCenter = { lat: filtered[0].lat, lng: filtered[0].lng };
+      setAreaButton(false);
     } else if (!filtered.length) {
       flash('검색 결과가 없습니다');
     }
@@ -1275,11 +1435,14 @@ function applySearch() {
     searchQuery = '';
     activeFilter = 'region';
     regionFilter = { region: ssRegion, district: ssDistrict };
+    areaCenter = null;
     currentSort = 'wins';
     refresh();
     if (filtered.length && map && typeof naver !== 'undefined') {
       map.setCenter(new naver.maps.LatLng(filtered[0].lat, filtered[0].lng));
       map.setZoom(ssDistrict ? 13 : 11);
+      searchCenter = { lat: filtered[0].lat, lng: filtered[0].lng };
+      setAreaButton(false);
     }
     return;
   }
@@ -1336,6 +1499,7 @@ function loadNaverMap(clientId) {
         // 항상 내 주변 반경 약 1km 줌으로 시작 (위치 거부 시 서울시청 중심)
         const center = pos || FALLBACK_CENTER;
         initMap(center.lat, center.lng, 15);
+        searchCenter = center;
         if (pos) placeMyMarker();
 
         activeFilter = 'near';
